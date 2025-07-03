@@ -900,7 +900,7 @@ UINTN RunGenericMenu (
                         DrawSelection        = FALSE;
                         State.PaintSelection = TRUE;
                         gSuppressPointerDraw = FALSE;
-                        pdDraw;
+                        pdDraw();
                     }
 
                     break;
