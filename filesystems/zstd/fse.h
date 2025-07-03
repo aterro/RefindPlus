@@ -37,13 +37,6 @@
  * You can contact the author at :
  * - Source repository : https://github.com/Cyan4973/FiniteStateEntropy
  */
- /*
-  * Modified for RefindPlus ... See RefindPlus Additions
-  * Copyright (c) 2025 Dayo Akanji (sf.net/u/dakanji/profile)
-  *
-  * Modifications distributed under the preceding terms.
-  */
-
 #ifndef FSE_H
 #define FSE_H
 
@@ -68,13 +61,6 @@
 
 #define FSE_VERSION_NUMBER (FSE_VERSION_MAJOR * 100 * 100 + FSE_VERSION_MINOR * 100 + FSE_VERSION_RELEASE)
 FSE_PUBLIC_API unsigned FSE_versionNumber(void); /**< library version number; to be used when checking dll version */
-
-/******************************************
-*  RefindPlus Additions
-******************************************/
-#define FSE_MEMSET(d,s,n)  memset((d),(s),(n))
-#define FSE_MEMCOPY(d,s,n) memcpy((d),(s),(n))
-#define FSE_MEMMOVE(d,s,n) memmove((d),(s),(n))
 
 /******************************************
 *  Tool functions

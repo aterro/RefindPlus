@@ -46,7 +46,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 /*
- * Modifications for rEFInd Copyright (c) 2012-2017 Roderick W. Smith
+ * Modifications copyright (c) 2012-2017 Roderick W. Smith
  *
  * Modifications distributed under the terms of the GNU General Public
  * License (GPL) version 3 (GPLv3), or (at your option) any later version.
@@ -54,76 +54,126 @@
  */
 /*
  * Modified for RefindPlus
- * Copyright (c) 2020-2025 Dayo Akanji (sf.net/u/dakanji/profile)
+ * Copyright (c) 2020-2021 Dayo Akanji (sf.net/u/dakanji/profile)
  *
  * Modifications distributed under the preceding terms.
  */
 
 #include "driver_support.h"
-#include "mystrings.h"
 #include "lib.h"
+#include "mystrings.h"
 #include "screenmgt.h"
 #include "launch_efi.h"
 #include "../include/refit_call_wrapper.h"
 
 #if defined (EFIX64)
-#   define DRIVER_DIRS             L"drivers_x64,drivers"
+    #define DRIVER_DIRS             L"drivers,drivers_x64"
 #elif defined (EFI32)
-#   define DRIVER_DIRS             L"drivers_ia32,drivers"
+    #define DRIVER_DIRS             L"drivers,drivers_ia32"
 #elif defined (EFIAARCH64)
-#   define DRIVER_DIRS             L"drivers_aa64,drivers"
+    #define DRIVER_DIRS             L"drivers,drivers_aa64"
 #else
-#   define DRIVER_DIRS             L"drivers"
+    #define DRIVER_DIRS             L"drivers"
 #endif
+
+// Following "global" constants are from EDK2's AutoGen.c.
+EFI_GUID gMyEfiLoadedImageProtocolGuid = {
+    0x5B1B31A1,
+    0x9562,
+    0x11D2,
+    { 0x8E, 0x3F, 0x00, 0xA0, 0xC9, 0x69, 0x72, 0x3B }
+};
+EFI_GUID gMyEfiDriverBindingProtocolGuid = {
+    0x18A031AB,
+    0xB443,
+    0x4D1A,
+    { 0xA5, 0xC0, 0x0C, 0x09, 0x26, 0x1E, 0x9F, 0x71 }
+};
+EFI_GUID gMyEfiDriverConfigurationProtocolGuid = {
+    0x107A772B,
+    0xD5E1,
+    0x11D4,
+    { 0x9A, 0x46, 0x00, 0x90, 0x27, 0x3F, 0xC1, 0x4D }
+};
+EFI_GUID gMyEfiDriverDiagnosticsProtocolGuid = {
+    0x0784924F,
+    0xE296,
+    0x11D4,
+    { 0x9A, 0x49, 0x00, 0x90, 0x27, 0x3F, 0xC1, 0x4D }
+};
+EFI_GUID gMyEfiComponentNameProtocolGuid = {
+    0x107A772C,
+    0xD5E1,
+    0x11D4,
+    { 0x9A, 0x46, 0x00, 0x90, 0x27, 0x3F, 0xC1, 0x4D }
+};
+EFI_GUID gMyEfiDevicePathProtocolGuid = {
+    0x09576E91,
+    0x6D3F,
+    0x11D2,
+    { 0x8E, 0x39, 0x00, 0xA0, 0xC9, 0x69, 0x72, 0x3B }
+};
+EFI_GUID gMyEfiDiskIoProtocolGuid = {
+    0xCE345171,
+    0xBA0B,
+    0x11D2,
+    { 0x8E, 0x4F, 0x00, 0xA0, 0xC9, 0x69, 0x72, 0x3B }
+};
+EFI_GUID gMyEfiBlockIoProtocolGuid = {
+    0x964E5B21,
+    0x6459,
+    0x11D2,
+    { 0x8E, 0x39, 0x00, 0xA0, 0xC9, 0x69, 0x72, 0x3B }
+};
+EFI_GUID gMyEfiSimpleFileSystemProtocolGuid = {
+    0x964E5B22,
+    0x6459,
+    0x11D2,
+    { 0x8E, 0x39, 0x00, 0xA0, 0xC9, 0x69, 0x72, 0x3B }
+};
 
 #ifdef __MAKEWITH_GNUEFI
 struct MY_EFI_SIMPLE_FILE_SYSTEM_PROTOCOL;
 struct MY_EFI_FILE_PROTOCOL;
 
 typedef
-EFI_STATUS (EFIAPI *MY_EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_OPEN_VOLUME) (
-    IN struct MY_EFI_SIMPLE_FILE_SYSTEM_PROTOCOL    *This,
-    OUT struct MY_EFI_FILE_PROTOCOL                **Root
-);
+EFI_STATUS
+(EFIAPI *MY_EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_OPEN_VOLUME)(
+  IN struct MY_EFI_SIMPLE_FILE_SYSTEM_PROTOCOL    *This,
+  OUT struct MY_EFI_FILE_PROTOCOL                **Root
+  );
 
 typedef struct _MY_MY_EFI_SIMPLE_FILE_SYSTEM_PROTOCOL {
-    UINT64                                         Revision;
-    MY_EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_OPEN_VOLUME OpenVolume;
+  UINT64                                         Revision;
+  MY_EFI_SIMPLE_FILE_SYSTEM_PROTOCOL_OPEN_VOLUME OpenVolume;
 } MY_EFI_SIMPLE_FILE_SYSTEM_PROTOCOL;
 
 typedef struct _MY_EFI_FILE_PROTOCOL {
-    UINT64                Revision;
-    EFI_FILE_OPEN         Open;
-    EFI_FILE_CLOSE        Close;
-    EFI_FILE_DELETE       Delete;
-    EFI_FILE_READ         Read;
-    EFI_FILE_WRITE        Write;
-    EFI_FILE_GET_POSITION GetPosition;
-    EFI_FILE_SET_POSITION SetPosition;
-    EFI_FILE_GET_INFO     GetInfo;
-    EFI_FILE_SET_INFO     SetInfo;
-    EFI_FILE_FLUSH        Flush;
+  UINT64                Revision;
+  EFI_FILE_OPEN         Open;
+  EFI_FILE_CLOSE        Close;
+  EFI_FILE_DELETE       Delete;
+  EFI_FILE_READ         Read;
+  EFI_FILE_WRITE        Write;
+  EFI_FILE_GET_POSITION GetPosition;
+  EFI_FILE_SET_POSITION SetPosition;
+  EFI_FILE_GET_INFO     GetInfo;
+  EFI_FILE_SET_INFO     SetInfo;
+  EFI_FILE_FLUSH        Flush;
 } MY_EFI_FILE_PROTOCOL;
 
 typedef struct _MY_EFI_BLOCK_IO_PROTOCOL {
-    UINT64              Revision;
-    EFI_BLOCK_IO_MEDIA *Media;
-    EFI_BLOCK_RESET     Reset;
-    EFI_BLOCK_READ      ReadBlocks;
-    EFI_BLOCK_WRITE     WriteBlocks;
-    EFI_BLOCK_FLUSH     FlushBlocks;
+  UINT64              Revision;
+  EFI_BLOCK_IO_MEDIA *Media;
+  EFI_BLOCK_RESET     Reset;
+  EFI_BLOCK_READ      ReadBlocks;
+  EFI_BLOCK_WRITE     WriteBlocks;
+  EFI_BLOCK_FLUSH     FlushBlocks;
 } MY_EFI_BLOCK_IO_PROTOCOL;
 #else /* Make with Tianocore */
 #define MY_EFI_SIMPLE_FILE_SYSTEM_PROTOCOL EFI_SIMPLE_FILE_SYSTEM_PROTOCOL
 #define MY_EFI_FILE_PROTOCOL               EFI_FILE_PROTOCOL
 #define MY_EFI_BLOCK_IO_PROTOCOL           EFI_BLOCK_IO_PROTOCOL
-#endif
-
-#ifdef __MAKEWITH_TIANO
-// DA-TAG: Limit to TianoCore
-extern EFI_STATUS OcRegisterDriversToHighestPriority (
-    IN EFI_HANDLE  *PriorityDrivers
-);
 #endif
 
 /* LibScanHandleDatabase() is used by RefindPlus' driver-loading code (inherited
@@ -153,7 +203,6 @@ EFI_STATUS LibScanHandleDatabase (
     UINTN                                  ChildIndex;
     BOOLEAN                                DriverBindingHandleIndexValid;
 
-
     DriverBindingHandleIndexValid = FALSE;
     if (DriverBindingHandleIndex != NULL) {
         *DriverBindingHandleIndex = 0xffffffff;
@@ -172,11 +221,13 @@ EFI_STATUS LibScanHandleDatabase (
     //
 
     Status = REFIT_CALL_5_WRAPPER(
-        gBS->LocateHandleBuffer, AllHandles,
+        gBS->LocateHandleBuffer,
+        AllHandles,
         NULL, NULL,
-        HandleCount, HandleBuffer
+        HandleCount,
+        HandleBuffer
     );
-    if (EFI_ERROR(Status)) {
+    if (EFI_ERROR (Status)) {
         goto Error;
     }
 
@@ -212,40 +263,30 @@ EFI_STATUS LibScanHandleDatabase (
         // Retrieve the list of all the protocols on each handle
         //
         Status = REFIT_CALL_3_WRAPPER(
-            gBS->ProtocolsPerHandle, (*HandleBuffer)[HandleIndex],
-            &ProtocolGuidArray, &ArrayCount
+            gBS->ProtocolsPerHandle,
+            (*HandleBuffer)[HandleIndex],
+            &ProtocolGuidArray,
+            &ArrayCount
         );
 
-        if (!EFI_ERROR(Status)) {
+        if (!EFI_ERROR (Status)) {
             for (ProtocolIndex = 0; ProtocolIndex < ArrayCount; ProtocolIndex++) {
-                if (CompareGuid (
-                    ProtocolGuidArray[ProtocolIndex], &gEfiLoadedImageProtocolGuid
-                ) == 0) {
+                if (CompareGuid (ProtocolGuidArray[ProtocolIndex], &gMyEfiLoadedImageProtocolGuid) == 0) {
                     (*HandleType)[HandleIndex] |= EFI_HANDLE_TYPE_IMAGE_HANDLE;
                 }
-                if (CompareGuid (
-                    ProtocolGuidArray[ProtocolIndex], &gEfiDriverBindingProtocolGuid
-                ) == 0) {
+                if (CompareGuid (ProtocolGuidArray[ProtocolIndex], &gMyEfiDriverBindingProtocolGuid) == 0) {
                     (*HandleType)[HandleIndex] |= EFI_HANDLE_TYPE_DRIVER_BINDING_HANDLE;
                 }
-                if (CompareGuid (
-                    ProtocolGuidArray[ProtocolIndex], &gEfiDriverConfigurationProtocolGuid
-                ) == 0) {
+                if (CompareGuid (ProtocolGuidArray[ProtocolIndex], &gMyEfiDriverConfigurationProtocolGuid) == 0) {
                     (*HandleType)[HandleIndex] |= EFI_HANDLE_TYPE_DRIVER_CONFIGURATION_HANDLE;
                 }
-                if (CompareGuid (
-                    ProtocolGuidArray[ProtocolIndex], &gEfiDriverDiagnosticsProtocolGuid
-                ) == 0) {
+                if (CompareGuid (ProtocolGuidArray[ProtocolIndex], &gMyEfiDriverDiagnosticsProtocolGuid) == 0) {
                     (*HandleType)[HandleIndex] |= EFI_HANDLE_TYPE_DRIVER_DIAGNOSTICS_HANDLE;
                 }
-                if (CompareGuid (
-                    ProtocolGuidArray[ProtocolIndex], &gEfiComponentNameProtocolGuid
-                ) == 0) {
+                if (CompareGuid (ProtocolGuidArray[ProtocolIndex], &gMyEfiComponentNameProtocolGuid) == 0) {
                     (*HandleType)[HandleIndex] |= EFI_HANDLE_TYPE_COMPONENT_NAME_HANDLE;
                 }
-                if (CompareGuid (
-                    ProtocolGuidArray[ProtocolIndex], &gEfiDevicePathProtocolGuid
-                ) == 0) {
+                if (CompareGuid (ProtocolGuidArray[ProtocolIndex], &gMyEfiDevicePathProtocolGuid) == 0) {
                     (*HandleType)[HandleIndex] |= EFI_HANDLE_TYPE_DEVICE_HANDLE;
                 }
 
@@ -253,44 +294,51 @@ EFI_STATUS LibScanHandleDatabase (
                 // Retrieve the list of agents that have opened each protocol
                 //
                 Status = REFIT_CALL_4_WRAPPER(
-                    gBS->OpenProtocolInformation, (*HandleBuffer)[HandleIndex],
-                    ProtocolGuidArray[ProtocolIndex], &OpenInfo, &OpenInfoCount
+                    gBS->OpenProtocolInformation,
+                    (*HandleBuffer)[HandleIndex],
+                    ProtocolGuidArray[ProtocolIndex],
+                    &OpenInfo, &OpenInfoCount
                 );
 
-                if (!EFI_ERROR(Status)) {
+                if (!EFI_ERROR (Status)) {
                     for (OpenInfoIndex = 0; OpenInfoIndex < OpenInfoCount; OpenInfoIndex++) {
                         if (DriverBindingHandle != NULL &&
                             OpenInfo[OpenInfoIndex].AgentHandle == DriverBindingHandle
                         ) {
-                            if ((OpenInfo[OpenInfoIndex].Attributes & EFI_OPEN_PROTOCOL_BY_DRIVER)
-                                == EFI_OPEN_PROTOCOL_BY_DRIVER
+                            if ((OpenInfo[OpenInfoIndex].Attributes & EFI_OPEN_PROTOCOL_BY_DRIVER) ==
+                                EFI_OPEN_PROTOCOL_BY_DRIVER
                             ) {
+                                //
                                 // Mark the device handle as being managed by the driver
                                 // specified by DriverBindingHandle
+                                //
                                 (*HandleType)[HandleIndex] |=
                                 (EFI_HANDLE_TYPE_DEVICE_HANDLE | EFI_HANDLE_TYPE_CONTROLLER_HANDLE);
+                                //
                                 // Mark the DriverBindingHandle as being a driver that is
                                 // managing at least one controller
+                                //
                                 if (DriverBindingHandleIndexValid) {
                                     (*HandleType)[*DriverBindingHandleIndex] |= EFI_HANDLE_TYPE_DEVICE_DRIVER;
                                 }
                             }
 
-                            if ((OpenInfo[OpenInfoIndex].Attributes & EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER)
-                                == EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER
+                            if ((OpenInfo[OpenInfoIndex].Attributes & EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER) ==
+                                EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER
                             ) {
+                                //
                                 // Mark the DriverBindingHandle as being a driver that is
                                 // managing at least one child controller
+                                //
                                 if (DriverBindingHandleIndexValid) {
                                     (*HandleType)[*DriverBindingHandleIndex] |= EFI_HANDLE_TYPE_BUS_DRIVER;
                                 }
                             }
 
-                            if (ControllerHandle != NULL
-                                && (*HandleBuffer)[HandleIndex] == ControllerHandle
-                            ) {
-                                if ((OpenInfo[OpenInfoIndex].Attributes & EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER)
-                                    == EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER
+                            if (ControllerHandle != NULL && (*HandleBuffer)[HandleIndex] == ControllerHandle) {
+                                if (
+                                    (OpenInfo[OpenInfoIndex].Attributes & EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER) ==
+                                    EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER
                                 ) {
                                     for (ChildIndex = 0; ChildIndex < *HandleCount; ChildIndex++) {
                                         if (
@@ -318,8 +366,8 @@ EFI_STATUS LibScanHandleDatabase (
                                 }
                             }
 
-                            if ((OpenInfo[OpenInfoIndex].Attributes & EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER)
-                                == EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER
+                            if ((OpenInfo[OpenInfoIndex].Attributes & EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER) ==
+                                EFI_OPEN_PROTOCOL_BY_CHILD_CONTROLLER
                             ) {
                                 (*HandleType)[HandleIndex] |= EFI_HANDLE_TYPE_PARENT_HANDLE;
                                 for (ChildIndex = 0; ChildIndex < *HandleCount; ChildIndex++) {
@@ -331,55 +379,46 @@ EFI_STATUS LibScanHandleDatabase (
                         }
                     }
 
-                    MY_FREE_POOL(OpenInfo);
+                    MyFreePool (&OpenInfo);
                 }
             }
-
-            MY_FREE_POOL(ProtocolGuidArray);
+            MyFreePool (&ProtocolGuidArray);
         }
     }
 
     return EFI_SUCCESS;
 
 Error:
-    MY_FREE_POOL(*HandleType);
-    MY_FREE_POOL(*HandleBuffer);
+    ReleasePtr (*HandleType);
+    ReleasePtr (*HandleBuffer);
 
     *HandleCount  = 0;
+    *HandleBuffer = NULL;
+    *HandleType   = NULL;
 
     return Status;
 } // EFI_STATUS LibScanHandleDatabase()
 
-// Modified from EDK2 function of similar name.
-// Original Copyright Intel under BSD License.
-// Modifications by Roderick Smith are GPLv3.
-// Modifications for RefindPlus prefer MIT.
-// NB: MIT use may be precluded by the GPL.
-//     I.E., GPL may be forced regardless.
-//     Still recording preference for a
-//       less restrictive licence but
-//       likely blocked by the GPL.
-//     Block may end with time.
-VOID ConnectAllDriversToAllControllers (VOID) {
-#ifdef __MAKEWITH_TIANO
-    static BOOLEAN ResetGOP = TRUE;
-
-
+/* Modified from EDK2 function of a similar name; original copyright Intel &
+ * BSD-licensed; modifications by Roderick Smith are GPLv3.
+ */
+EFI_STATUS ConnectAllDriversToAllControllers (
+    IN BOOLEAN ResetGOP
+) {
+#ifndef __MAKEWITH_GNUEFI
     BdsLibConnectAllDriversToAllControllers (ResetGOP);
-
-    // DA-TAG: Only reset GOP once
-    ResetGOP = FALSE;
+    return 0;
 #else
     EFI_STATUS   Status;
-    EFI_HANDLE  *AllHandleBuffer;
     UINTN        AllHandleCount;
+    EFI_HANDLE  *AllHandleBuffer;
     UINTN        Index;
     UINTN        HandleCount;
-    UINTN        HandleIndex;
     EFI_HANDLE  *HandleBuffer;
     UINT32      *HandleType;
+    UINTN        HandleIndex;
     BOOLEAN      Parent;
-
+    BOOLEAN      Device;
 
     Status = LibLocateHandle (
         AllHandles,
@@ -387,8 +426,9 @@ VOID ConnectAllDriversToAllControllers (VOID) {
         &AllHandleCount,
         &AllHandleBuffer
     );
-    if (EFI_ERROR(Status)) {
-        return;
+
+    if (EFI_ERROR (Status)) {
+        return Status;
     }
 
     for (Index = 0; Index < AllHandleCount; Index++) {
@@ -400,42 +440,50 @@ VOID ConnectAllDriversToAllControllers (VOID) {
             &HandleBuffer,
             &HandleType
         );
-        if (EFI_ERROR(Status)) {
-            continue;
+
+        if (EFI_ERROR (Status)) {
+            goto Done;
         }
 
-        if ( (HandleType[Index] & EFI_HANDLE_TYPE_DEVICE_HANDLE) &&
-            !(HandleType[Index] & EFI_HANDLE_TYPE_IMAGE_HANDLE)  &&
-            !(HandleType[Index] & EFI_HANDLE_TYPE_DRIVER_BINDING_HANDLE)
-        ) {
-            Parent = FALSE;
+        Device = TRUE;
+        if (HandleType[Index] & EFI_HANDLE_TYPE_DRIVER_BINDING_HANDLE) {
+            Device = FALSE;
+        }
+        if (HandleType[Index] & EFI_HANDLE_TYPE_IMAGE_HANDLE) {
+            Device = FALSE;
+        }
 
+        // Dummy ... just to use passed parameter which is only needed for TianoCore
+        Parent = ResetGOP;
+        if (Device) {
+            Parent = FALSE;
             for (HandleIndex = 0; HandleIndex < HandleCount; HandleIndex++) {
                 if (HandleType[HandleIndex] & EFI_HANDLE_TYPE_PARENT_HANDLE) {
                     Parent = TRUE;
-
-                    break;
                 }
             } // for
 
             if (!Parent) {
-                REFIT_CALL_4_WRAPPER(
-                    gBS->ConnectController, AllHandleBuffer[Index],
-                    NULL, NULL, TRUE
-                );
+                if (HandleType[Index] & EFI_HANDLE_TYPE_DEVICE_HANDLE) {
+                   Status = REFIT_CALL_4_WRAPPER(
+                       gBS->ConnectController,
+                       AllHandleBuffer[Index],
+                       NULL, NULL, TRUE
+                   );
+               }
             }
         }
 
-        MY_FREE_POOL(HandleBuffer);
-        MY_FREE_POOL(HandleType);
-    } // for Index
+        MyFreePool (&HandleBuffer);
+        MyFreePool (&HandleType);
+    }
 
-    MY_FREE_POOL(AllHandleBuffer);
+Done:
+    MyFreePool (&AllHandleBuffer);
+    return Status;
 #endif
-} // VOID ConnectAllDriversToAllControllers()
+} // EFI_STATUS ConnectAllDriversToAllControllers()
 
-// DA-TAG: Exclude TianoCore - START
-#ifndef __MAKEWITH_TIANO
 /*
  * ConnectFilesystemDriver() is modified from DisconnectInvalidDiskIoChildDrivers()
  * in Clover (https://sourceforge.net/projects/cloverefiboot/), which is derived
@@ -454,44 +502,51 @@ VOID ConnectAllDriversToAllControllers (VOID) {
  * passed to us. This should have no effect on systems unaffected by this EFI
  * bug/quirk.
  */
-VOID ConnectFilesystemDriver (
+VOID ConnectFilesystemDriver(
     EFI_HANDLE DriverHandle
 ) {
     EFI_STATUS                             Status;
-    UINTN                                  HandleCount;
+    UINTN                                  HandleCount = 0;
     UINTN                                  Index;
-    UINTN                                  OpenInfoCount;
     UINTN                                  OpenInfoIndex;
-    EFI_HANDLE                             DriverHandleList[2];
-    EFI_HANDLE                            *Handles;
-    MY_EFI_BLOCK_IO_PROTOCOL              *BlockIo;
+    EFI_HANDLE                            *Handles = NULL;
     MY_EFI_SIMPLE_FILE_SYSTEM_PROTOCOL    *Fs;
+    MY_EFI_BLOCK_IO_PROTOCOL              *BlockIo;
     EFI_OPEN_PROTOCOL_INFORMATION_ENTRY   *OpenInfo;
+    UINTN                                  OpenInfoCount;
+    EFI_HANDLE                             DriverHandleList[2];
 
-
+    //
     // Get all DiskIo handles
-    Handles = NULL;
-    HandleCount = 0;
+    //
     Status = REFIT_CALL_5_WRAPPER(
         gBS->LocateHandleBuffer, ByProtocol,
-        &gEfiDiskIoProtocolGuid, NULL,
+        &gMyEfiDiskIoProtocolGuid, NULL,
         &HandleCount, &Handles
     );
-    if (EFI_ERROR(Status) || HandleCount == 0) {
+
+    if (EFI_ERROR (Status) || HandleCount == 0) {
         return;
     }
 
+    //
     // Check every DiskIo handle
+    //
     for (Index = 0; Index < HandleCount; Index++) {
+        //
         // If this is not partition - skip it.
         // This is then whole disk and DiskIo
         // should be opened here BY_DRIVER by Partition driver
         // to produce partition volumes.
+        //
         Status = REFIT_CALL_3_WRAPPER(
-            gBS->HandleProtocol, Handles[Index],
-            &gEfiBlockIoProtocolGuid, (VOID **) &BlockIo
+            gBS->HandleProtocol,
+            Handles[Index],
+            &gMyEfiBlockIoProtocolGuid,
+            (VOID **) &BlockIo
         );
-        if (EFI_ERROR(Status)) {
+
+        if (EFI_ERROR (Status)) {
             continue;
         }
 
@@ -499,35 +554,45 @@ VOID ConnectFilesystemDriver (
             continue;
         }
 
+        //
         // If SimpleFileSystem is already produced - skip it, this is ok
+        //
         Status = REFIT_CALL_3_WRAPPER(
-            gBS->HandleProtocol, Handles[Index],
-            &gEfiSimpleFileSystemProtocolGuid, (VOID **) &Fs
+            gBS->HandleProtocol,
+            Handles[Index],
+            &gMyEfiSimpleFileSystemProtocolGuid,
+            (VOID **) &Fs
         );
-        if (!EFI_ERROR(Status)) {
+
+        if (Status == EFI_SUCCESS) {
             continue;
         }
 
+        //
         // If no SimpleFileSystem on this handle but DiskIo is opened BY_DRIVER
         // then disconnect this connection and try to connect our driver to it
+        //
         Status = REFIT_CALL_4_WRAPPER(
-            gBS->OpenProtocolInformation, Handles[Index],
-            &gEfiDiskIoProtocolGuid, &OpenInfo, &OpenInfoCount
+            gBS->OpenProtocolInformation,
+            Handles[Index],
+            &gMyEfiDiskIoProtocolGuid,
+            &OpenInfo,
+            &OpenInfoCount
         );
-        if (EFI_ERROR(Status)) {
+
+        if (EFI_ERROR (Status)) {
             continue;
         }
 
         DriverHandleList[1] = NULL;
         for (OpenInfoIndex = 0; OpenInfoIndex < OpenInfoCount; OpenInfoIndex++) {
-            if ((OpenInfo[OpenInfoIndex].Attributes & EFI_OPEN_PROTOCOL_BY_DRIVER)
-                == EFI_OPEN_PROTOCOL_BY_DRIVER
-            ) {
+            if ((OpenInfo[OpenInfoIndex].Attributes & EFI_OPEN_PROTOCOL_BY_DRIVER) == EFI_OPEN_PROTOCOL_BY_DRIVER) {
                 Status = REFIT_CALL_3_WRAPPER(
                     gBS->DisconnectController, Handles[Index],
                     OpenInfo[OpenInfoIndex].AgentHandle, NULL
                 );
-                if (!EFI_ERROR(Status)) {
+
+                if (!(EFI_ERROR (Status))) {
                     DriverHandleList[0] = DriverHandle;
                     REFIT_CALL_4_WRAPPER(
                         gBS->ConnectController, Handles[Index],
@@ -537,401 +602,179 @@ VOID ConnectFilesystemDriver (
             }
         } // for
 
-        MY_FREE_POOL(OpenInfo);
+        MyFreePool (&OpenInfo);
     }
 
-    MY_FREE_POOL(Handles);
+    MyFreePool (&Handles);
 } // VOID ConnectFilesystemDriver()
-#endif
-// DA-TAG: Exclude TianoCore - END
 
 // Scan a directory for drivers.
 // Originally from rEFIt's main.c (BSD), but modified since then (GPLv3).
 static
 UINTN ScanDriverDir (
-    IN  CHAR16      *Path,
-    OUT EFI_HANDLE **DriversList
+    IN CHAR16 *Path
 ) {
-    EFI_STATUS                     Status;
-    EFI_STATUS                     XStatus;
-    EFI_GUID                     **ProtocolGuidArray;
-    BOOLEAN                        DriverBindingFlag;
-    BOOLEAN                        FirstLoop;
-    BOOLEAN                        CheckIter;
-    CHAR16                        *FileName;
-    CHAR16                        *ErrMsg;
-    UINTN                          NumFound;
-    UINTN                          DriversArrSizeNew;
-    UINTN                          DriversArrSize;
-    UINTN                          DriversArrNum;
-    UINTN                          ProtocolIndex;
-    UINTN                          ArrayCount;
-    EFI_HANDLE                    *DriversArr;
-    EFI_HANDLE                     DriverHandle;
-    EFI_FILE_INFO                 *DirEntry;
-    REFIT_DIR_ITER                 DirIter;
-
+    EFI_STATUS       Status;
+    REFIT_DIR_ITER   DirIter;
+    EFI_FILE_INFO   *DirEntry;
+    CHAR16          *FileName;
+    CHAR16          *ErrMsg;
+    UINTN            NumFound  = 0;
 
     CleanUpPathNameSlashes (Path);
 
     #if REFIT_DEBUG > 0
-    BRK_MOD("\n");
-    LOG_MSG("Scan '%s' Folder:", Path);
+    MsgLog ("\n");
+    MsgLog ("Scan '%s' Folder:\n", Path);
     #endif
 
-    // Look through contents of the directory
+    // look through contents of the directory
     DirIterOpen (SelfRootDir, Path, &DirIter);
 
-    FirstLoop = TRUE;
-    DriversArr = NULL;
-    DriversArrSize = DriversArrSizeNew = 16;
-    ArrayCount = ProtocolIndex = DriversArrNum = NumFound = 0;
-    while (1) {
-        CheckIter = DirIterNext (&DirIter, 2, LOADER_MATCH_PATTERNS, &DirEntry);
-        if (!CheckIter) break;
+    #if REFIT_DEBUG > 0
+    BOOLEAN RunOnce = FALSE;
+    #endif
 
+    while (DirIterNext (&DirIter, 2, LOADER_MATCH_PATTERNS, &DirEntry)) {
         if (DirEntry->FileName[0] == '.') {
-            // Skip this
-            MY_FREE_POOL(DirEntry);
+            // skip this
+            MyFreePool (&DirEntry);
             continue;
         }
-
-        DriverBindingFlag = FALSE;
 
         NumFound++;
         FileName = PoolPrint (L"%s\\%s", Path, DirEntry->FileName);
 
+        #if REFIT_DEBUG > 0
+        if (RunOnce) {
+            LOG(1, LOG_THREE_STAR_SEP, L"NEXT DRIVER");
+        }
+        #endif
+
         Status = StartEFIImage (
             SelfVolume, FileName, L"",
             DirEntry->FileName, 0,
-            FALSE, TRUE, &DriverHandle
+            FALSE, TRUE
         );
 
-        MY_FREE_POOL(DirEntry);
-
-        if (DriverHandle != NULL) {
-            // Driver Loaded - Check for EFI_DRIVER_BINDING_PROTOCOL
-            XStatus = REFIT_CALL_3_WRAPPER(
-                gBS->ProtocolsPerHandle, DriverHandle,
-                &ProtocolGuidArray, &ArrayCount
-            );
-            if (!EFI_ERROR(XStatus)) {
-                for (ProtocolIndex = 0; ProtocolIndex < ArrayCount; ProtocolIndex++) {
-                    if (CompareGuid (ProtocolGuidArray[ProtocolIndex], &gEfiDriverBindingProtocolGuid)) {
-                        DriverBindingFlag = TRUE;
-                        break;
-                    }
-                } // for
-
-                if (DriverBindingFlag) {
-                    if (FirstLoop) {
-                        FirstLoop = FALSE;
-                        // New Array
-                        DriversArr = AllocatePool (
-                            sizeof (EFI_HANDLE) * DriversArrSize
-                        );
-                    }
-                    else {
-                        // Extend Array
-                        DriversArrSizeNew += 16;
-                        DriversArr = ReallocatePool (
-                            DriversArrSize,
-                            DriversArrSizeNew,
-                            DriversArr
-                        );
-                        DriversArrSize = DriversArrSizeNew;
-                    }
-
-                    DriversArr[DriversArrNum] = DriverHandle;
-                    DriversArrNum++;
-                    DriversArr[DriversArrNum] = NULL; // Terminate Array
-                }
-
-                MY_FREE_POOL(ProtocolGuidArray);
-            } // if !EFI_ERROR Status
-        }
+        MyFreePool (&DirEntry);
 
         #if REFIT_DEBUG > 0
-        LOG_MSG(
-            "%s  - %r ... uEFI Driver:- '%s'",
-            (GlobalConfig.LogLevel <= LOGLEVELMAX)
-                ? OffsetNext
-                : L"",
-            Status, FileName
-        );
-        BRK_MAX("\n");
+        if (RunOnce) {
+            MsgLog ("\n");
+        }
+
+        RunOnce = TRUE;
+
+        MsgLog ("  - Load '%s' ... %r", FileName, Status);
         #endif
 
-        MY_FREE_POOL(FileName);
-    } // while {Infinite}
+        MyFreePool (&FileName);
+    } // while
 
     Status = DirIterClose (&DirIter);
-    if (EFI_ERROR(Status) && Status != EFI_NOT_FOUND) {
-        ErrMsg = PoolPrint (L"While Scanning the '%s' Directory for uEFI Drivers", Path);
+    if (Status != EFI_NOT_FOUND) {
+        ErrMsg = PoolPrint (L"While Scanning the '%s' Directory", Path);
         CheckError (Status, ErrMsg);
-        MY_FREE_POOL(ErrMsg);
+        MyFreePool (&ErrMsg);
     }
-
-    *DriversList = DriversArr;
 
     return (NumFound);
 } // static UINTN ScanDriverDir()
 
-// Handles some otherwise largely duplicated code
-static
-UINTN LoadDriversHelper (
-    CHAR16      *Directory,
-    CHAR16      *SelfDirectory,
-    BOOLEAN      UserDefined,
-    EFI_HANDLE **DriversListUser
+
+// Load all EFI drivers from RefindPlus' "drivers" subdirectory and from the
+// directories specified by the user in the "scan_driver_dirs" configuration
+// file line.
+// Originally from rEFIt's main.c (BSD), but modified since then (GPLv3).
+// Returns TRUE if any drivers are loaded, FALSE otherwise.
+BOOLEAN LoadDrivers(
+    VOID
 ) {
+    CHAR16  *Directory;
+    CHAR16  *SelfDirectory;
+    UINTN    Length;
+    UINTN    i        = 0;
+    UINTN    NumFound = 0;
+    UINTN    CurFound = 0;
+
     #if REFIT_DEBUG > 0
-    CHAR16      *MsgNotFound = L"Not Found or Empty";
+    LOG(1, LOG_LINE_SEPARATOR, L"Loading Drivers");
     #endif
 
-    UINTN        CurFound;
-    CHAR16      *BaseDirectory;
-
-
-    CleanUpPathNameSlashes (Directory);
-    if (UserDefined && StrLen (Directory) == 0) {
-        return 0;
-    }
-
-    if (SelfDirectory == NULL ||
-        (
-            UserDefined &&
-            MyStrBegins (SelfDirectory, Directory)
-        )
-    ) {
-        BaseDirectory = StrDuplicate (Directory);
-    }
-    else {
-        BaseDirectory = StrDuplicate (SelfDirectory);
-        MergeStrings (&BaseDirectory, Directory, L'\\');
-    }
-
-    CurFound = ScanDriverDir (BaseDirectory, DriversListUser);
-    #if REFIT_DEBUG > 0
-    if (CurFound == 0) {
-        ALT_LOG(1, LOG_LINE_NORMAL,
-            L"'%s' ... %s Driver Folder:- '%s'",
-            MsgNotFound,
-            UserDefined ? L"User Defined" : L"Program Default",
-            BaseDirectory
-        );
-        LOG_MSG(
-            "%s  - %s",
-            (GlobalConfig.LogLevel <= LOGLEVELMAX)
-                ? OffsetNext : L"",
-                MsgNotFound
-            );
-    }
-    #endif
-
-    MY_FREE_POOL(BaseDirectory);
-
-    return CurFound;
-} // static UINTN LoadDriversHelper()
-
-// Load all UEFI drivers from the "drivers" directory
-//   and any directories specified by the user in the
-//   "scan_driver_dirs" configuration file setting.
-// Returns TRUE if drivers are loaded or FALSE.
-//
-// Modified from the version in rEFIt's main.c.
-// Original copyrighted under the BSD License.
-// Modifications by Roderick Smith are GPLv3.
-// Modifications for RefindPlus prefer MIT.
-// NB: MIT use may be precluded by the GPL.
-//     I.E., GPL may be forced regardless.
-//     Still recording preference for a
-//       less restrictive licence but
-//       likely blocked by the GPL.
-//     Block may end with time.
-BOOLEAN LoadDrivers (VOID) {
-    #if REFIT_DEBUG > 0
-    CHAR16      *MsgStr;
-    #endif
-
-    UINTN        i, k;
-    UINTN        NumFound;
-    UINTN        CurFound;
-    CHAR16      *Directory;
-    CHAR16      *SelfDirectory;
-    BOOLEAN      NumDriverFlag;
-    EFI_HANDLE  *DriversListAll;  // Do *NOT* Free
-    EFI_HANDLE  *DriversListProg; // Do *NOT* Free
-    EFI_HANDLE  *DriversListUser; // Do *NOT* Free
-
-#ifdef __MAKEWITH_TIANO
-// DA-TAG: Limit to TianoCore
-    UINTN        HandleSize;
-    UINTN        DriversIndex;
-#endif
-
-
-    #if REFIT_DEBUG > 0
-    // Load drivers from the subdirectories of RefindPlus' home directory
+    // load drivers from the subdirectories of RefindPlus' home directory
     // specified in the DRIVER_DIRS constant.
-    ALT_LOG(1, LOG_THREE_STAR_SEP, L"Load Provided Drivers in Program Default Folder");
-    LOG_MSG("\n\n");
-    LOG_MSG("L O A D   P R O V I D E D   D R I V E R S   :::::   P R O G R A M   D E F A U L T   F O L D E R");
-#if REFIT_DEBUG > 1
-    LOG_MSG("\n");
-#endif
+    #if REFIT_DEBUG > 0
+    MsgLog ("Load EFI Drivers from Default Folder...");
     #endif
-
-    if (SelfDirPath == NULL) {
-        SelfDirectory = NULL;
-    }
-    else {
-        SelfDirectory = StrDuplicate (SelfDirPath);
+    while ((Directory = FindCommaDelimited (DRIVER_DIRS, i++)) != NULL) {
+        SelfDirectory = SelfDirPath ? StrDuplicate (SelfDirPath) : NULL;
         CleanUpPathNameSlashes (SelfDirectory);
-    }
+        MergeStrings (&SelfDirectory, Directory, L'\\');
+        CurFound = ScanDriverDir(SelfDirectory);
+        MyFreePool (&Directory);
+        MyFreePool (&SelfDirectory);
 
-    DriversListProg = NULL;
-    NumFound = CurFound = i = 0;
-    while (CurFound == 0) {
-        Directory = FindCommaDelimited (
-            DRIVER_DIRS, i++
-        );
-        if (Directory == NULL) break;
-
-        CurFound = LoadDriversHelper (
-            Directory, SelfDirectory,
-            FALSE, &DriversListProg
-        );
         if (CurFound > 0) {
-            // Only process one default folder.
-            // Increment 'NumFound' and exit loop.
-            NumFound += CurFound;
+            NumFound = NumFound + CurFound;
+            break;
         }
-
-        MY_FREE_POOL(Directory);
-    } // while
+        else {
+            #if REFIT_DEBUG > 0
+            MsgLog ("  - Not Found or Empty");
+            #endif
+        }
+    }
 
     // Scan additional user-specified driver directories.
-    DriversListUser = NULL;
-    if (GlobalConfig.DriverDirs) {
+    if (GlobalConfig.DriverDirs != NULL) {
         #if REFIT_DEBUG > 0
-        ALT_LOG(1, LOG_THREE_STAR_SEP, L"Load Provided Drivers in User Defined Folders");
-        LOG_MSG("\n\n");
-        LOG_MSG("L O A D   P R O V I D E D   D R I V E R S   :::::   U S E R   D E F I N E D   F O L D E R S");
-        BRK_MAX("\n");
+        MsgLog ("\n\n");
+        MsgLog ("Load EFI Drivers from User Defined Folders...");
         #endif
 
         i = 0;
-        while (1) {
-            Directory = FindCommaDelimited (
-                GlobalConfig.DriverDirs, i++
-            );
-            if (Directory == NULL) break;
+        while ((Directory = FindCommaDelimited (GlobalConfig.DriverDirs, i++)) != NULL) {
+            CleanUpPathNameSlashes (Directory);
+            Length = StrLen (Directory);
+            if (Length > 0) {
+                SelfDirectory = SelfDirPath ? StrDuplicate (SelfDirPath) : NULL;
+                CleanUpPathNameSlashes (SelfDirectory);
+                MergeStrings (&SelfDirectory, Directory, L'\\');
 
-            // Increment 'NumFound' if drivers found
-            NumFound += LoadDriversHelper (
-                Directory, SelfDirectory,
-                TRUE, &DriversListUser
-            );
+                if (MyStrStr (SelfDirectory, L"EFI\\BOOT\\EFI") != NULL) {
+                    ReplaceSubstring (&SelfDirectory, L"EFI\\BOOT\\EFI", L"EFI");
+                    ReplaceSubstring (&SelfDirectory, L"System\\Library\\CoreServices\\System", L"System");
+                }
 
-            MY_FREE_POOL(Directory);
-        } // while {Infinite}
+                CurFound = ScanDriverDir (SelfDirectory);
+                MyFreePool (&SelfDirectory);
+
+                if (CurFound > 0) {
+                    NumFound = NumFound + CurFound;
+                }
+                else {
+                    #if REFIT_DEBUG > 0
+                    MsgLog ("  - Not Found or Empty");
+                    #endif
+                }
+            }
+
+            MyFreePool (&Directory);
+        } // while
     }
-    MY_FREE_POOL(SelfDirectory);
-
-    NumDriverFlag = (NumFound > 0);
 
     #if REFIT_DEBUG > 0
-    LOG_MSG("\n\n");
-    MsgStr = PoolPrint (
-        L"Processed %d UEFI Driver%s",
-        NumFound, (NumFound == 1) ? L"" : L"s"
-    );
-    ALT_LOG(1, LOG_LINE_THIN_SEP, L"%s", MsgStr);
-    MY_FREE_POOL(MsgStr);
+    MsgLog ("\n\n");
+
+    if (NumFound < 1) {
+        LOG(1, LOG_LINE_NORMAL, L"No Drivers Found");
+    }
     #endif
 
-#ifdef __MAKEWITH_TIANO
-// DA-TAG: Limit to TianoCore
-    if (GlobalConfig.RansomDrives && NumDriverFlag) {
-        DriversIndex = 0;
-        DriversListAll = NULL;
-        HandleSize = sizeof (EFI_HANDLE) * 16;
-
-        /* Program Default Folders - START */
-        if (DriversListProg != NULL) {
-            i = 0;
-            while (DriversListProg[i] != NULL) {
-                i += 1;
-            } // while
-
-            if (i > 0) {
-                DriversListAll = AllocatePool (
-                    HandleSize * i
-                );
-            }
-
-            for (k = 0; k < i; k++) {
-                if (DriversListProg[k] == NULL) {
-                    // Safety valve to exclude NULL
-                    // NULL Termination Added Later
-                    continue;
-                }
-                DriversListAll[DriversIndex] = DriversListProg[k],
-                ++DriversIndex;
-            } // for
-        }
-        /* Program Default Folders - END */
-
-        /* User Defined Folders - START */
-        if (DriversListUser != NULL) {
-            i = 0;
-            while (DriversListUser[i] != NULL) {
-                i += 1;
-            } // while
-
-            if (DriversIndex == 0) {
-                // Create new array
-                DriversListAll = AllocatePool (
-                    HandleSize * i
-                );
-            }
-            else {
-                // Extend existing array
-                DriversListAll = ReallocatePool (
-                    HandleSize * DriversIndex,
-                    HandleSize * (DriversIndex + i),
-                    DriversListAll
-                );
-            }
-
-            for (k = 0; k < i; k++) {
-                if (DriversListUser[k] == NULL) {
-                    // Safety valve to exclude NULL
-                    // NULL Termination Added Later
-                    continue;
-                }
-                DriversListAll[DriversIndex] = DriversListUser[k],
-                ++DriversIndex;
-            } // for
-        }
-        /* User Defined Folders - END */
-
-        if (DriversListAll != NULL) {
-            // Terminate array
-            DriversListAll[DriversIndex] = NULL;
-
-            // Prioritise drivers loaded by RefindPlus
-            OcRegisterDriversToHighestPriority (
-                DriversListAll
-            );
-        }
-    } // if GlobalConfig.RansomDrives
-#endif
-
-    // Connect Devices
+    // connect all devices
     // DA-TAG: Always run this
-    ConnectAllDriversToAllControllers();
+    ConnectAllDriversToAllControllers (TRUE);
 
-    return NumDriverFlag;
+    return (NumFound > 0);
 } // BOOLEAN LoadDrivers()

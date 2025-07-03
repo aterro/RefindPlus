@@ -34,7 +34,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 /*
- * Modifications for rEFInd Copyright (c) 2012 Roderick W. Smith
+ * Modifications copyright (c) 2012 Roderick W. Smith
  *
  * Modifications distributed under the terms of the GNU General Public
  * License (GPL) version 3 (GPLv3), a copy of which must be distributed
@@ -42,7 +42,7 @@
  */
 /*
  * Modified for RefindPlus
- * Copyright (c) 2021-2024 Dayo Akanji (sf.net/u/dakanji/profile)
+ * Copyright (c) 2021 Dayo Akanji (sf.net/u/dakanji/profile)
  *
  * Modifications distributed under the preceding terms.
  */
@@ -63,22 +63,19 @@
 #include "pointer.h"
 
 //
-// Menu module
+// menu module
 //
 
-#define MENU_EXIT_ZERO       (0)
-#define MENU_EXIT_ENTER      (1)
-#define MENU_EXIT_ESCAPE     (2)
-#define MENU_EXIT_DETAILS    (3)
-#define MENU_EXIT_TIMEOUT    (4)
-#define MENU_EXIT_EJECT      (5)
-#define MENU_EXIT_HIDE       (6)
-#define MENU_EXIT_SCREENSHOT (7)
-#define MENU_EXIT_SHOWSCREEN (8)
+#define MENU_EXIT_ENTER   (1)
+#define MENU_EXIT_ESCAPE  (2)
+#define MENU_EXIT_DETAILS (3)
+#define MENU_EXIT_TIMEOUT (4)
+#define MENU_EXIT_EJECT   (5)
+#define MENU_EXIT_HIDE    (6)
 
-#define TAG_RETURN          (99)
+#define TAG_RETURN       (99)
 
-// Scrolling definitions
+// scrolling definitions
 
 typedef struct {
    INTN CurrentSelection, PreviousSelection, MaxIndex;
@@ -88,131 +85,80 @@ typedef struct {
    BOOLEAN PaintAll, PaintSelection;
 } SCROLL_STATE;
 
-#define SCROLL_LINE_UP       (0)
-#define SCROLL_LINE_DOWN     (1)
-#define SCROLL_PAGE_UP       (2)
-#define SCROLL_PAGE_DOWN     (3)
-#define SCROLL_FIRST         (4)
-#define SCROLL_LAST          (5)
-#define SCROLL_NONE          (6)
-#define SCROLL_LINE_RIGHT    (7)
-#define SCROLL_LINE_LEFT     (8)
+#define SCROLL_LINE_UP    (0)
+#define SCROLL_LINE_DOWN  (1)
+#define SCROLL_PAGE_UP    (2)
+#define SCROLL_PAGE_DOWN  (3)
+#define SCROLL_FIRST      (4)
+#define SCROLL_LAST       (5)
+#define SCROLL_NONE       (6)
+#define SCROLL_LINE_RIGHT (7)
+#define SCROLL_LINE_LEFT  (8)
 
-#define SCROLL_MODE_TEXT     (0) /* Used in text mode & for GUI submenus */
-#define SCROLL_MODE_ICONS    (1) /* Used for main GUI menu */
+#define SCROLL_MODE_TEXT  (0) /* Used in text mode & for GUI submenus */
+#define SCROLL_MODE_ICONS (1) /* Used for main GUI menu */
 
 #define POINTER_NO_ITEM     (-1)
 #define POINTER_LEFT_ARROW  (-2)
 #define POINTER_RIGHT_ARROW (-3)
 
-#define INPUT_KEY            (0)
-#define INPUT_POINTER        (1)
-#define INPUT_TIMEOUT        (2)
-#define INPUT_TIMER_ERROR    (3)
-
-// Tags for 'Yes' and 'No'
-#define TAG_NO               (0)
-#define TAG_YES              (1)
+#define INPUT_KEY         (0)
+#define INPUT_POINTER     (1)
+#define INPUT_TIMEOUT     (2)
+#define INPUT_TIMER_ERROR (3)
 
 // Maximum length of a text string in certain menus
-#define MAX_LINE_LENGTH     (65)
-
-#define TRUSTED_BOOT_CONFIRM  L"Confirm Trusted Boot Fix"
+#define MAX_LINE_LENGTH 65
 
 struct _refit_menu_screen;
 
-typedef VOID (*MENU_STYLE_FUNC) (
+typedef VOID (*MENU_STYLE_FUNC)(
     IN REFIT_MENU_SCREEN *Screen,
-    IN SCROLL_STATE      *State,
-    IN UINTN              Function,
-    IN CHAR16            *ParamText
+    IN SCROLL_STATE *State,
+    IN UINTN Function,
+    IN CHAR16 *ParamText
 );
 
-INTN FindMenuShortcutEntry (
-    IN REFIT_MENU_SCREEN *Screen,
-    IN CHAR16            *Defaults
-);
-
+VOID FreeLoaderEntry (IN LOADER_ENTRY *Entry);
+VOID FreeBdsOption (BDS_COMMON_OPTION **BdsOption);
+VOID AddMenuInfoLine (IN REFIT_MENU_SCREEN *Screen, IN CHAR16 *InfoLine);
+VOID AddMenuEntry (IN REFIT_MENU_SCREEN *Screen, IN REFIT_MENU_ENTRY *Entry);
+VOID DisplaySimpleMessage (CHAR16 *Title, CHAR16 *Message);
 VOID ManageHiddenTags (VOID);
 VOID GenerateWaitList (VOID);
-VOID FreeBdsOption (BDS_COMMON_OPTION **BdsOption);
-VOID FreeMenuScreen (IN REFIT_MENU_SCREEN **Screen);
-VOID FreeMenuEntry (IN OUT REFIT_MENU_ENTRY **Entry);
-VOID AddMenuEntry (
-    IN REFIT_MENU_SCREEN *Screen,
-    IN REFIT_MENU_ENTRY  *Entry
-);
-VOID AddMenuEntryCopy (
-    IN REFIT_MENU_SCREEN *Screen,
-    IN REFIT_MENU_ENTRY  *Entry
-);
-VOID AddSubMenuEntry (
-    IN REFIT_MENU_SCREEN *SubScreen,
-    IN REFIT_MENU_ENTRY  *SubEntry
-);
-VOID AddMenuInfoLine (
-    IN REFIT_MENU_SCREEN *Screen,
-    IN CHAR16            *InfoLine,
-    IN BOOLEAN            CanFree
-);
 VOID MainMenuStyle (
     IN REFIT_MENU_SCREEN *Screen,
-    IN SCROLL_STATE      *State,
-    IN UINTN              Function,
-    IN CHAR16            *ParamText
+    IN SCROLL_STATE *State,
+    IN UINTN Function,
+    IN CHAR16 *ParamText
 );
 VOID TextMenuStyle (
     IN REFIT_MENU_SCREEN *Screen,
-    IN SCROLL_STATE      *State,
-    IN UINTN              Function,
-    IN CHAR16            *ParamText
+    IN SCROLL_STATE *State,
+    IN UINTN Function,
+    IN CHAR16 *ParamText
 );
 VOID GraphicsMenuStyle (
     IN REFIT_MENU_SCREEN *Screen,
-    IN SCROLL_STATE      *State,
-    IN UINTN              Function,
-    IN CHAR16            *ParamText
+    IN SCROLL_STATE *State,
+    IN UINTN Function,
+    IN CHAR16 *ParamText
 );
-VOID DisplaySimpleMessage (
-    CHAR16 *Message,
-    CHAR16 *Title OPTIONAL
-);
-#if REFIT_DEBUG > 0
-VOID LogExit (
-    IN  UINTN       MenuExit,
-    IN  const char  FunctionName[],
-    IN  CHAR16     *ChosenOptionTitle
-);
-#endif
-
-UINTN ComputeRow0PosY (IN BOOLEAN ApplyOffset);
-UINTN WaitForInput (IN UINTN Timeout);
-UINTN AbortSyncTrust (VOID);
-UINTN DrawMenuScreen (
-    IN     REFIT_MENU_SCREEN   *Screen,
-    IN     MENU_STYLE_FUNC      StyleFunc,
-    IN OUT INTN                *DefaultEntryIndex,
-    OUT    REFIT_MENU_ENTRY  **ChosenOption
-);
-UINTN FindMainMenuItem (
+UINTN RunGenericMenu (
     IN REFIT_MENU_SCREEN *Screen,
-    IN SCROLL_STATE      *State,
-    IN UINTN              PosX,
-    IN UINTN              PosY
+    IN MENU_STYLE_FUNC StyleFunc,
+    IN OUT INTN *DefaultEntryIndex,
+    OUT REFIT_MENU_ENTRY **ChosenEntry
 );
-UINTN RunMainMenu (
-    IN REFIT_MENU_SCREEN  *Screen,
-    IN CHAR16            **DefaultSelection,
-    OUT REFIT_MENU_ENTRY **ChosenOption
-);
+
+UINTN ComputeRow0PosY (VOID);
+UINTN RunMenu (IN REFIT_MENU_SCREEN *Screen, OUT REFIT_MENU_ENTRY **ChosenEntry);
+UINTN RunMainMenu (IN REFIT_MENU_SCREEN *Screen, IN CHAR16** DefaultSelection, OUT REFIT_MENU_ENTRY **ChosenEntry);
+UINTN FindMainMenuItem (IN REFIT_MENU_SCREEN *Screen, IN SCROLL_STATE *State, IN UINTN PosX, IN UINTN PosY);
+UINTN WaitForInput (IN UINTN Timeout);
 
 CHAR16 * ReadHiddenTags (CHAR16 *VarName);
 CHAR16 * MenuExitInfo (IN UINTN MenuExit);
-
-BOOLEAN GetMenuEntryYesNo (IN OUT REFIT_MENU_SCREEN **Screen);
-BOOLEAN GetMenuEntryReturn (IN OUT REFIT_MENU_SCREEN **Screen);
-BOOLEAN ConfirmSyncNVram (VOID);
-BOOLEAN ConfirmRotate (VOID);
 
 BDS_COMMON_OPTION * CopyBdsOption (BDS_COMMON_OPTION *BdsOption);
 

@@ -22,12 +22,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
- /*
-  * Modified for RefindPlus
-  * Copyright (c) 2024 Dayo Akanji (sf.net/u/dakanji/profile)
-  *
-  * Modifications distributed under the preceding terms.
-  */
 
 #ifndef _FSW_EXT4_DISK_H_
 #define _FSW_EXT4_DISK_H_
@@ -48,7 +42,7 @@ typedef __u32   __le32;
 typedef __u64   __le64;
 
 //
-// From Linux kernel, fs/ext4/ext4.h
+// from Linux kernel, fs/ext4/ext4.h
 //
 
 /*
@@ -294,13 +288,13 @@ struct ext4_super_block {
 	 *
 	 * Note: the difference between the compatible feature set and
 	 * the incompatible feature set is that if there is a bit set
-	 * in the incompatible feature set that the kernel does not
+	 * in the incompatible feature set that the kernel doesn't
 	 * know about, it should refuse to mount the filesystem.
 	 *
-	 * e2fsck's requirements are more strict; if it does not know
+	 * e2fsck's requirements are more strict; if it doesn't know
 	 * about a feature in either the compatible or incompatible
 	 * feature set, it must abort and not try to meddle with
-	 * things it does not understand...
+	 * things it doesn't understand...
 	 */
 	__le32	s_first_ino;		/* First non-reserved inode */
 	__le16  s_inode_size;		/* size of inode structure */
@@ -392,21 +386,21 @@ struct ext4_super_block {
  */
 #define EXT4_FEATURE_RO_COMPAT_SPARSE_SUPER     0x0001
 
-#define EXT4_FEATURE_INCOMPAT_COMPRESSION       0x0001
-#define EXT4_FEATURE_INCOMPAT_FILETYPE          0x0002
-#define EXT4_FEATURE_INCOMPAT_RECOVER           0x0004  /* Needs recovery */
-#define EXT4_FEATURE_INCOMPAT_JOURNAL_DEV       0x0008  /* Journal device */
-#define EXT4_FEATURE_INCOMPAT_META_BG           0x0010
-#define EXT4_FEATURE_INCOMPAT_EXTENTS           0x0040  /* extents support */
-#define EXT4_FEATURE_INCOMPAT_64BIT             0x0080
+#define EXT4_FEATURE_INCOMPAT_COMPRESSION	0x0001
+#define EXT4_FEATURE_INCOMPAT_FILETYPE		0x0002
+#define EXT4_FEATURE_INCOMPAT_RECOVER		0x0004 /* Needs recovery */
+#define EXT4_FEATURE_INCOMPAT_JOURNAL_DEV	0x0008 /* Journal device */
+#define EXT4_FEATURE_INCOMPAT_META_BG		0x0010
+#define EXT4_FEATURE_INCOMPAT_EXTENTS		0x0040 /* extents support */
+#define EXT4_FEATURE_INCOMPAT_64BIT		0x0080
 #define EXT4_FEATURE_INCOMPAT_MMP               0x0100
-#define EXT4_FEATURE_INCOMPAT_FLEX_BG           0x0200
-#define EXT4_FEATURE_INCOMPAT_EA_INODE          0x0400  /* EA in inode */
-#define EXT4_FEATURE_INCOMPAT_DIRDATA           0x1000  /* data in dirent */
-#define EXT4_FEATURE_INCOMPAT_BG_USE_META_CSUM  0x2000  /* use crc32c for bg */
-#define EXT4_FEATURE_INCOMPAT_LARGEDIR          0x4000  /* >2GB or 3-lvl htree */
-#define EXT4_FEATURE_INCOMPAT_INLINEDATA        0x8000  /* data in inode */
-#define EXT4_FEATURE_INCOMPAT_ENCRYPT           0x10000 /* BK ext4 fscrypt encryption */
+#define EXT4_FEATURE_INCOMPAT_FLEX_BG		0x0200
+#define EXT4_FEATURE_INCOMPAT_EA_INODE		0x0400 /* EA in inode */
+#define EXT4_FEATURE_INCOMPAT_DIRDATA		0x1000 /* data in dirent */
+#define EXT4_FEATURE_INCOMPAT_BG_USE_META_CSUM	0x2000 /* use crc32c for bg */
+#define EXT4_FEATURE_INCOMPAT_LARGEDIR		0x4000 /* >2GB or 3-lvl htree */
+#define EXT4_FEATURE_INCOMPAT_INLINEDATA	0x8000 /* data in inode */
+#define EXT4_FEATURE_INCOMPAT_ENCRYPT		0x10000 /* BK ext4 fscrypt encryption */
 
 #define EXT4_FEATURE_INCOMPAT_SUPP	(EXT4_FEATURE_INCOMPAT_FILETYPE| \
 					 EXT4_FEATURE_INCOMPAT_RECOVER| \
@@ -432,9 +426,8 @@ struct ext4_dir_entry {
 //  layout and ext4_dir_entry_2 with the revised layout. We simply use the revised one.
 
 /*
- * Ext2 directory file types.
- * Only the lower 3 bits are used.
- * The other bits are reserved for now.
+ * Ext2 directory file types.  Only the low 3 bits are used.  The
+ * other bits are reserved for now.
  */
 enum {
     EXT4_FT_UNKNOWN,

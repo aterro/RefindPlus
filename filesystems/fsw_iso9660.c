@@ -60,7 +60,7 @@
  */
 /*
  * Modified for RefindPlus
- * Copyright (c) 2021-2023 Dayo Akanji (sf.net/u/dakanji/profile)
+ * Copyright (c) 2021 Dayo Akanji (sf.net/u/dakanji/profile)
  *
  * Modifications distributed under the preceding terms.
  */
@@ -320,7 +320,7 @@ static fsw_status_t fsw_iso9660_volume_mount(struct fsw_iso9660_volume *vol)
                 status = fsw_memdup((void **) &vol->primary_voldesc, voldesc, ISO9660_BLOCKSIZE);
             }
         } else if (!fsw_memeq(voldesc->standard_identifier, "CD", 2)) {
-            // Completely alien standard identifier, stop reading
+            // completely alien standard identifier, stop reading
             voldesc_type = 255;
         }
 
@@ -330,14 +330,14 @@ static fsw_status_t fsw_iso9660_volume_mount(struct fsw_iso9660_volume *vol)
     if (status)
         return status;
 
-    // Get information from Primary Volume Descriptor
+    // get information from Primary Volume Descriptor
     if (vol->primary_voldesc == NULL)
         return FSW_UNSUPPORTED;
     pvoldesc = vol->primary_voldesc;
 //     if (ISOINT(pvoldesc->logical_block_size) != 2048)
 //         return FSW_UNSUPPORTED;
 
-    // Get volume name
+    // get volume name
     for (i = 32; i > 0; i--)
         if (pvoldesc->volume_identifier[i-1] != ' ')
             break;
@@ -388,8 +388,8 @@ static fsw_status_t fsw_iso9660_volume_mount(struct fsw_iso9660_volume *vol)
         if (sp->magic[0] == 0xbe && sp->magic[1] == 0xef) {
             vol->fRockRidge = 1;
         } else {
- //           FSW_MSG_DEBUG((FSW_MSGSTR("fsw_iso9660_volume_mount: SP magic is not valid\n")));
-//          DBG("fsw_iso9660_volume_mount: SP magic is not valid\n");
+ //           FSW_MSG_DEBUG((FSW_MSGSTR("fsw_iso9660_volume_mount: SP magic isn't valid\n")));
+//          DBG("fsw_iso9660_volume_mount: SP magic isn't valid\n");
         }
     }
 #endif
@@ -437,7 +437,7 @@ static fsw_status_t fsw_iso9660_volume_stat(struct fsw_iso9660_volume *vol, stru
 
 static fsw_status_t fsw_iso9660_dnode_fill(struct fsw_iso9660_volume *vol, struct fsw_iso9660_dnode *dno)
 {
-    // Get info from the directory record
+    // get info from the directory record
     dno->g.size = ISOINT(dno->dirrec.data_length);
     if (dno->dirrec.file_flags & 0x02)
         dno->g.type = FSW_DNODE_TYPE_DIR;
@@ -522,8 +522,6 @@ static fsw_status_t fsw_iso9660_dir_lookup(struct fsw_iso9660_volume *vol, struc
     if (status)
         return status;
 
-    dirrec_buffer.ino = 0;
-
     // scan the directory for the file
     while (1) {
         // read next entry
@@ -577,8 +575,6 @@ static fsw_status_t fsw_iso9660_dir_read(struct fsw_iso9660_volume *vol, struct 
     /* (vasily) directory nodes are 4096 bytes that is two logical blocks so read dir operation
      * should read both blocks.
      */
-
-    dirrec_buffer.ino = 0;
 
     while (1) {
         // read next entry
@@ -638,6 +634,14 @@ static fsw_status_t fsw_iso9660_read_dirrec(struct fsw_iso9660_volume *vol, stru
     }
 
     if (buffer_size < 33 || dirrec->dirrec_length == 0) {
+        // end of directory reached
+        fsw_u8 *r;
+        r = (fsw_u8 *)dirrec;
+ //       DEBUG((DEBUG_INFO, "%a:%d bs:%d dl:%d\n", __FILE__, __LINE__, buffer_size, dirrec->dirrec_length));
+        for(i = 0; i < buffer_size; ++i)
+        {
+            DEBUG((DEBUG_INFO, "r[%d]:%c", i, r[i]));
+        }
         dirrec->dirrec_length = 0;
         return FSW_SUCCESS;
     }

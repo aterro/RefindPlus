@@ -111,11 +111,11 @@ static fsw_status_t fsw_ext2_volume_mount(struct fsw_ext2_volume *vol)
      Print(L"Ext2 WARNING: This ext3 file system needs recovery, trying to use it anyway.\n");
      */
 
-    // Set real blocksize
+    // set real blocksize
     blocksize = EXT2_BLOCK_SIZE(vol->sb);
     fsw_set_blocksize(vol, blocksize, blocksize);
 
-    // Get other info from superblock
+    // get other info from superblock
     vol->ind_bcnt = EXT2_ADDR_PER_BLOCK(vol->sb);
     vol->dind_bcnt = vol->ind_bcnt * vol->ind_bcnt;
     vol->inode_size = EXT2_INODE_SIZE(vol->sb);
@@ -130,7 +130,7 @@ static fsw_status_t fsw_ext2_volume_mount(struct fsw_ext2_volume *vol)
     if (status)
         return status;
 
-    // Read the group descriptors to get inode table offsets
+    // read the group descriptors to get inode table offsets
     groupcnt = ((vol->sb->s_inodes_count - 2) / vol->sb->s_inodes_per_group) + 1;
     gdesc_per_block = (vol->g.phys_blocksize / sizeof (struct ext2_group_desc));
 
@@ -138,7 +138,7 @@ static fsw_status_t fsw_ext2_volume_mount(struct fsw_ext2_volume *vol)
     if (status)
         return status;
     for (groupno = 0; groupno < groupcnt; groupno++) {
-        // Get the block group descriptor
+        // get the block group descriptor
         gdesc_bno = (vol->sb->s_first_data_block + 1) + groupno / gdesc_per_block;
         gdesc_index = groupno % gdesc_per_block;
         status = fsw_block_get(vol, gdesc_bno, 1, (void **) &buffer);
@@ -203,7 +203,7 @@ static fsw_status_t fsw_ext2_dnode_fill(struct fsw_ext2_volume *vol, struct fsw_
 
     FSW_MSG_DEBUG((FSW_MSGSTR("fsw_ext2_dnode_fill: inode %d\n"), dno->g.dnode_id));
 
-    // Read the inode block
+    // read the inode block
     groupno = (fsw_u32) (dno->g.dnode_id - 1) / vol->sb->s_inodes_per_group;
     ino_in_group = (fsw_u32) (dno->g.dnode_id - 1) % vol->sb->s_inodes_per_group;
     ino_bno = vol->inotab_bno[groupno] +
@@ -213,13 +213,13 @@ static fsw_status_t fsw_ext2_dnode_fill(struct fsw_ext2_volume *vol, struct fsw_
     if (status)
         return status;
 
-    // Keep our inode around
+    // keep our inode around
     status = fsw_memdup((void **) &dno->raw, buffer + ino_index * vol->inode_size, vol->inode_size);
     fsw_block_release(vol, ino_bno, buffer);
     if (status)
         return status;
 
-    // Get info from the inode
+    // get info from the inode
     dno->g.size = dno->raw->i_size;
     // TODO: check docs for 64-bit sized files
     if (S_ISREG(dno->raw->i_mode))
@@ -253,13 +253,10 @@ static void fsw_ext2_dnode_free(struct fsw_ext2_volume *vol, struct fsw_ext2_dno
  * callback that converts it to the host-specific format.
  */
 
-static
-fsw_status_t fsw_ext2_dnode_stat (
-    struct fsw_ext2_volume *vol,
-    struct fsw_ext2_dnode  *dno,
-    struct fsw_dnode_stat  *sb
-) {
-    sb->used_bytes = ((fsw_u64)dno->raw->i_blocks) * 512;   // very, very strange...
+static fsw_status_t fsw_ext2_dnode_stat(struct fsw_ext2_volume *vol, struct fsw_ext2_dnode *dno,
+                                        struct fsw_dnode_stat *sb)
+{
+    sb->used_bytes = dno->raw->i_blocks * 512;   // very, very strange...
     fsw_store_time_posix(sb, FSW_DNODE_STAT_CTIME, dno->raw->i_ctime);
     fsw_store_time_posix(sb, FSW_DNODE_STAT_ATIME, dno->raw->i_atime);
     fsw_store_time_posix(sb, FSW_DNODE_STAT_MTIME, dno->raw->i_mtime);
@@ -390,8 +387,6 @@ static fsw_status_t fsw_ext2_dir_lookup(struct fsw_ext2_volume *vol, struct fsw_
     // Preconditions: The caller has checked that dno is a directory node.
 
     entry_name.type = FSW_STRING_TYPE_ISO88591;
-    entry.name_len  = 0;
-    entry.inode     = 0;
 
     // setup handle to read the directory
     status = fsw_shandle_open(dno, &shand);
@@ -446,8 +441,6 @@ static fsw_status_t fsw_ext2_dir_read(struct fsw_ext2_volume *vol, struct fsw_ex
     // Preconditions: The caller has checked that dno is a directory node. The caller
     //  has opened a storage handle to the directory's storage and keeps it around between
     //  calls.
-    entry.name_len  = 0;
-    entry.inode     = 0;
 
     while (1) {
         // read next entry

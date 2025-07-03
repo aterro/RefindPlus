@@ -16,12 +16,6 @@
  * WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
  *
  */
-/*
- * Modified for RefindPlus
- * Copyright (c) 2025 Dayo Akanji (sf.net/u/dakanji/profile)
- *
- * Modifications distributed under the preceding terms.
- */
 
 #ifndef _DRIVER_SUPPORT
 #define _DRIVER_SUPPORT
@@ -47,24 +41,18 @@
 #define EFI_HANDLE_TYPE_CHILD_HANDLE                0x400
 
 // Below is from http://git.etherboot.org/?p=mirror/efi/shell/.git;a=commitdiff;h=b1b0c63423cac54dc964c2930e04aebb46a946ec;
-// Seems to have been replaced by ParseHandleDatabaseByRelationshipWithType(), but the latter is not working for me.
+// Seems to have been replaced by ParseHandleDatabaseByRelationshipWithType(), but the latter isn't working for me.
 EFI_STATUS
 LibScanHandleDatabase (
-  EFI_HANDLE    DriverBindingHandle      OPTIONAL,
-  UINT32       *DriverBindingHandleIndex OPTIONAL,
-  EFI_HANDLE    ControllerHandle         OPTIONAL,
-  UINT32       *ControllerHandleIndex    OPTIONAL,
-  UINTN        *HandleCount,
+  EFI_HANDLE  DriverBindingHandle, OPTIONAL
+  UINT32      *DriverBindingHandleIndex, OPTIONAL
+  EFI_HANDLE  ControllerHandle, OPTIONAL
+  UINT32      *ControllerHandleIndex, OPTIONAL
+  UINTN       *HandleCount,
   EFI_HANDLE  **HandleBuffer,
   UINT32      **HandleType
   );
-
-VOID ConnectAllDriversToAllControllers(VOID);
-
-// DA-TAG: Exclude TianoCore - START
-#ifndef __MAKEWITH_TIANO
+EFI_STATUS ConnectAllDriversToAllControllers(IN BOOLEAN ResetGOP);
 VOID ConnectFilesystemDriver(EFI_HANDLE DriverHandle);
-#endif
-// DA-TAG: Exclude TianoCore - END
 BOOLEAN LoadDrivers(VOID);
 #endif

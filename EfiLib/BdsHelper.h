@@ -4,6 +4,7 @@
  *
  */
 /**
+
 Copyright (c) 2004 - 2014, Intel Corporation. All rights reserved.<BR>
 This program and the accompanying materials
 are licensed and made available under the terms and conditions of the BSD License
@@ -12,6 +13,7 @@ http://opensource.org/licenses/bsd-license.php
 
 THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
 WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+
 **/
 
 #ifdef __MAKEWITH_TIANO
@@ -40,9 +42,9 @@ BdsLibDoLegacyBoot (
   IN  BDS_COMMON_OPTION           *Option
   );
 
-EFI_STATUS BdsConnectDevicePath  (  IN EFI_DEVICE_PATH_PROTOCOL   *DevicePath,
-                                    OUT EFI_HANDLE                *Handle,
-                                    OUT EFI_DEVICE_PATH_PROTOCOL **RemainingDevicePath
+EFI_STATUS BdsConnectDevicePath  (  IN EFI_DEVICE_PATH_PROTOCOL *    DevicePath,
+                                    OUT EFI_HANDLE *     Handle,
+                                    OUT EFI_DEVICE_PATH_PROTOCOL **     RemainingDevicePath
 );
 
 #endif //_BDS_HELPER_H_

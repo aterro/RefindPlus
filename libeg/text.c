@@ -33,119 +33,72 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-/*
- * Modified for RefindPlus
- * Copyright (c) 2021-2024 Dayo Akanji (sf.net/u/dakanji/profile)
- * Portions Copyright (c) 2021 Joe van Tunen (joevt@shaw.ca)
- *
- * Modifications distributed under the preceding terms.
- */
-
 
 #include "libegint.h"
 #include "../BootMaster/global.h"
-#include "../BootMaster/rp_funcs.h"
-#include "../BootMaster/screenmgt.h"
-#include "egemb_font.h"
-#include "egemb_font_small.h"
-#include "egemb_font_large.h"
 
+#include "egemb_font.h"
+#include "egemb_font_large.h"
 #define FONT_NUM_CHARS 96
 
-extern BOOLEAN   DefaultBanner;
+static EG_IMAGE *BaseFontImage = NULL;
+static EG_IMAGE *DarkFontImage = NULL;
+static EG_IMAGE *LightFontImage = NULL;
 
-#if REFIT_DEBUG > 0
-extern BOOLEAN   FoundFontImage;
-#endif
-
-UINTN            FontCellWidth = 7;
-EG_IMAGE        *BaseFontImage = NULL;
+static UINTN FontCellWidth = 7;
 
 //
 // Text rendering
 //
 
 static
-VOID egPrepareFont (VOID) {
-    UINTN     ScreenW;
-    UINTN     ScreenH;
-    UINTN     ScreenLongest;
-    UINTN     ScreenShortest;
-    EG_PIXEL  TextFontColor = { 0x00, 0x00, 0x00, 0 };
+VOID egPrepareFont() {
+    UINTN ScreenW, ScreenH;
 
-    egGetScreenSize (&ScreenW, &ScreenH);
-
-    // Get longest and shortest edge dimensions
-    ScreenLongest  = (ScreenW >= ScreenH) ? ScreenW : ScreenH;
-    ScreenShortest = (ScreenW <= ScreenH) ? ScreenW : ScreenH;
-
+    egGetScreenSize(&ScreenW, &ScreenH);
 
     if (BaseFontImage == NULL) {
-        if (GlobalConfig.ScaleUI == 99) {
-            BaseFontImage = egPrepareEmbeddedImage (&egemb_font, TRUE, &TextFontColor);
+        if (GlobalConfig.ScaleUI == -1) {
+            BaseFontImage = egPrepareEmbeddedImage(&egemb_font, TRUE);
         }
-        else if (GlobalConfig.ScaleUI == -1) {
-            BaseFontImage = egPrepareEmbeddedImage (&egemb_font_small, TRUE, &TextFontColor);
-        }
-        else if (
-            (GlobalConfig.ScaleUI == 1) ||
-            (ScreenShortest >= HIDPI_SHORT && ScreenLongest >= HIDPI_LONG)
-        ) {
-            BaseFontImage = egPrepareEmbeddedImage (&egemb_font_large, TRUE, &TextFontColor);
-        }
-        else if (ScreenShortest <= LOREZ_LIMIT || ScreenLongest <= LOREZ_LIMIT) {
-            BaseFontImage = egPrepareEmbeddedImage (&egemb_font_small, TRUE, &TextFontColor);
+        else if ((GlobalConfig.ScaleUI == 1) || (ScreenH >= HIDPI_MIN)) {
+            BaseFontImage = egPrepareEmbeddedImage(&egemb_font_large, TRUE);
         }
         else {
-            BaseFontImage = egPrepareEmbeddedImage (&egemb_font, TRUE, &TextFontColor);
+            BaseFontImage = egPrepareEmbeddedImage(&egemb_font, TRUE);
         }
     }
     if (BaseFontImage != NULL) {
         FontCellWidth = BaseFontImage->Width / FONT_NUM_CHARS;
     }
-} // static VOID egPrepareFont();
+} // VOID egPrepareFont();
 
-UINTN egGetFontHeight (VOID) {
+UINTN egGetFontHeight(VOID) {
    egPrepareFont();
    return BaseFontImage->Height;
 } // UINTN egGetFontHeight()
 
-UINTN egGetFontCellWidth (VOID) {
+UINTN egGetFontCellWidth(VOID) {
    return FontCellWidth;
-} // UINTN egGetFontCellWidth()
+}
 
-UINTN egComputeTextWidth (
-    IN CHAR16 *Text
-) {
-    UINTN Width;
+UINTN egComputeTextWidth(IN CHAR16 *Text) {
+   UINTN Width = 0;
 
-
-    egPrepareFont();
-
-    if (Text == NULL) {
-        Width = 0;
-    }
-    else{
-        Width = StrLen (Text) * FontCellWidth;
-    }
-
-    return Width;
+   egPrepareFont();
+   if (Text != NULL)
+      Width = FontCellWidth * StrLen(Text);
+   return Width;
 } // UINTN egComputeTextWidth()
 
-VOID egMeasureText (
-    IN  CHAR16 *Text,
-    OUT UINTN  *Width,
-    OUT UINTN  *Height
-) {
+VOID egMeasureText(IN CHAR16 *Text, OUT UINTN *Width, OUT UINTN *Height) {
     egPrepareFont();
 
-    if (Height != NULL) {
+    if (Width != NULL)
+        *Width = StrLen(Text) * FontCellWidth;
+    if (Height != NULL)
         *Height = BaseFontImage->Height;
-    }
-    if (Width != NULL) {
-        *Width  = StrLen (Text) * FontCellWidth;
-    }
-} // VOID egMeasureText()
+}
 
 VOID egRenderText (
     IN CHAR16       *Text,
@@ -154,79 +107,57 @@ VOID egRenderText (
     IN UINTN         PosY,
     IN UINT8         BGBrightness
 ) {
-    UINTN            i, c;
-    UINTN            TextLength;
-    UINTN            FontLineOffset;
-    UINTN            BufferLineOffset;
-    EG_PIXEL        *FontPixelData;
-    EG_PIXEL        *BufferPtr;
-    EG_PIXEL         OurFont = {0xFF, 0xFF, 0xFF, 0};
     EG_IMAGE        *FontImage;
+    EG_PIXEL        *BufferPtr;
+    EG_PIXEL        *FontPixelData;
+    UINTN            BufferLineOffset, FontLineOffset;
+    UINTN            TextLength;
+    UINTN            i, c;
 
-    const  UINTN     LoRGB          =    0;
-    const  UINTN     HiRGB          =  255;
-    static EG_IMAGE *DarkFontImage  = NULL;
-    static EG_IMAGE *LightFontImage = NULL;
-
-
-    // Early Return if nothing was passed
-    if (Text == NULL) {
+    // Nothing to do if nothing was passed
+    if (!Text) {
         return;
     }
 
     egPrepareFont();
 
-    // Clip the text
+    // clip the text
     TextLength = StrLen (Text);
-    if ((TextLength * FontCellWidth) + PosX > CompImage->Width) {
+
+    if (TextLength * FontCellWidth + PosX > CompImage->Width) {
         TextLength = (CompImage->Width - PosX) / FontCellWidth;
     }
 
-    if (BGBrightness >= 128) {
-        if (DarkFontImage == NULL) {
-            DarkFontImage = egCopyImage (BaseFontImage);
-        }
-        if (DarkFontImage == NULL) {
-            return;
-        }
+    if (BGBrightness < 128) {
+       if (LightFontImage == NULL) {
+          LightFontImage = egCopyImage(BaseFontImage);
+          if (LightFontImage == NULL) {
+              return;
+          }
 
-        FontImage = DarkFontImage;
+          for (i = 0; i < (LightFontImage->Width * LightFontImage->Height); i++) {
+             LightFontImage->PixelData[i].r = 255 - LightFontImage->PixelData[i].r;
+             LightFontImage->PixelData[i].g = 255 - LightFontImage->PixelData[i].g;
+             LightFontImage->PixelData[i].b = 255 - LightFontImage->PixelData[i].b;
+          } // for
+
+       } // if
+       FontImage = LightFontImage;
     }
     else {
-        if (LightFontImage == NULL) {
-            LightFontImage = egCopyImage (BaseFontImage);
-            if (LightFontImage == NULL) {
-                return;
-            }
+       if (DarkFontImage == NULL) {
+           DarkFontImage = egCopyImage(BaseFontImage);
+       }
+       if (DarkFontImage == NULL) {
+           return;
+       }
+       FontImage = DarkFontImage;
+    } // if/else
 
-            if (DefaultBanner || GlobalConfig.HelpText) {
-                OurFont = FontComplement();
-            }
-
-            for (i = 0; i < (LightFontImage->Width * LightFontImage->Height); i++) {
-                if (LightFontImage->PixelData[i].r == LoRGB &&
-                    LightFontImage->PixelData[i].g == LoRGB &&
-                    LightFontImage->PixelData[i].b == LoRGB
-                ) {
-                    LightFontImage->PixelData[i].r = OurFont.r;
-                    LightFontImage->PixelData[i].g = OurFont.g;
-                    LightFontImage->PixelData[i].b = OurFont.b;
-                }
-                else {
-                    LightFontImage->PixelData[i].r = HiRGB - LightFontImage->PixelData[i].r;
-                    LightFontImage->PixelData[i].g = HiRGB - LightFontImage->PixelData[i].g;
-                    LightFontImage->PixelData[i].b = HiRGB - LightFontImage->PixelData[i].b;
-                }
-            } // for
-        } // if LightFontImage == NULL
-
-        FontImage = LightFontImage;
-    } // if/else BGBrightness >= 128
-
-    // Render it
-    BufferLineOffset  = CompImage->Width;
+    // render it
     BufferPtr         = CompImage->PixelData;
-    BufferPtr        += PosX + (PosY * BufferLineOffset);
+    BufferLineOffset  = CompImage->Width;
+    BufferPtr        += PosX + PosY * BufferLineOffset;
     FontPixelData     = FontImage->PixelData;
     FontLineOffset    = FontImage->Width;
 
@@ -239,27 +170,22 @@ VOID egRenderText (
             c -= 32;
         }
 
-        egRawCompose (
-            BufferPtr, FontPixelData + (c * FontCellWidth),
-            FontCellWidth, FontImage->Height,
-            BufferLineOffset, FontLineOffset
-        );
+        egRawCompose(BufferPtr, FontPixelData + c * FontCellWidth,
+                     FontCellWidth, FontImage->Height,
+                     BufferLineOffset, FontLineOffset);
         BufferPtr += FontCellWidth;
     }
-} // VOID egRenderText()
+}
 
 // Load a font bitmap from the specified file
-VOID egLoadFont (
-    IN CHAR16 *Filename
-) {
-    MY_FREE_IMAGE(BaseFontImage);
-    BaseFontImage = egLoadImage (SelfDir, Filename, TRUE);
+VOID egLoadFont(IN CHAR16 *Filename) {
+   if (BaseFontImage)
+      egFreeImage(BaseFontImage);
 
-    #if REFIT_DEBUG > 0
-    if (BaseFontImage == NULL) {
-        FoundFontImage = FALSE;
-    }
-    #endif
-
+   BaseFontImage = egLoadImage(SelfDir, Filename, TRUE);
+   if (BaseFontImage == NULL)
+      Print(L"Note: Font image file %s is invalid! Using default font!\n");
     egPrepareFont();
-} // VOID egLoadFont()
+} // BOOLEAN egLoadFont()
+
+/* EOF */

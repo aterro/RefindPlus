@@ -11,7 +11,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-INSTALL_DIR = /boot/efi/EFI/refindplus/drivers
+INSTALL_DIR = /boot/efi/EFI/refind/drivers
 
 FILESYSTEMS = ext2 ext4 reiserfs iso9660 hfs btrfs
 FILESYSTEMS_GNUEFI = ext2_gnuefi ext4_gnuefi reiserfs_gnuefi iso9660_gnuefi hfs_gnuefi btrfs_gnuefi
@@ -82,10 +82,6 @@ btrfs_gnuefi:
 ntfs_gnuefi:
 	rm -f fsw_efi.o
 	+make DRIVERNAME=ntfs -f Make.gnuefi
-
-# Compiling filesystem drivers in parallel with GNU-EFI can cause build errors
-# and frozen systems on boot with drivers that do build OK, so disallow this....
-.NOTPARALLEL:
 
 # utility rules
 

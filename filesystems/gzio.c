@@ -279,16 +279,7 @@ static ush mask_bits[] =
   0x01ff, 0x03ff, 0x07ff, 0x0fff, 0x1fff, 0x3fff, 0x7fff, 0xffff
 };
 
-/* DA-TAG: Modified by Dayo Akanji (sf.net/u/dakanji/profile). 28 Nov 2021 */
-// Make conditional to remove Mac OS Clang compile warning
-#ifdef __GNUC__
-#  ifndef __has_warning
-#    define __has_warning(x) 0
-#  endif
-#endif
-#if !defined(__GNUC__) && (!defined(__has_warning) || __has_warning("-Wunsafe-loop-optimizations"))
 #pragma GCC diagnostic ignored "-Wunsafe-loop-optimizations"
-#endif
 
 #define NEEDBITS(n) do {while(k<(n)){b|=((ulg)get_byte(gzio))<<k;k+=8;}} while (0)
 #define DUMPBITS(n) do {b>>=(n);k-=(n);} while (0)
@@ -493,7 +484,6 @@ huft_build (unsigned *b,        /* code lengths in bits (all assumed <= BMAX) */
           /* fill code-like entries with r */
           f = 1 << (k - w);
           for (j = i >> w; j < z; j += f)
-            /* coverity[uninit_use: SUPPRESS] */
             q[j] = r;
 
           /* backwards increment the k-bit code i */
@@ -560,9 +550,9 @@ inflate_codes_in_window (grub_gzio_t gzio)
   w = gzio->wp;                 /* initialize window position */
 
   /* inflate the coded data */
-  ml = mask_bits[gzio->bl];     /* precompute masks for speed */
+  ml = mask_bits[gzio->bl];             /* precompute masks for speed */
   md = mask_bits[gzio->bd];
-  while (1)                     /* do until end of block */
+  for (;;)                      /* do until end of block */
     {
       if (! gzio->code_state)
         {
@@ -982,7 +972,6 @@ inflate_window (grub_gzio_t gzio)
        *  Expand other kind of block.
        */
 
-      /* coverity[var_deref_model: SUPPRESS] */
       if (inflate_codes_in_window (gzio))
         {
           huft_free (gzio->tl);
@@ -1022,7 +1011,7 @@ static int
 test_zlib_header (grub_gzio_t gzio)
 {
   uint8_t cmf, flg;
-
+  
   cmf = get_byte (gzio);
   flg = get_byte (gzio);
 
@@ -1037,7 +1026,7 @@ test_zlib_header (grub_gzio_t gzio)
       return 0;
     }
 
-  /* Dictionary is not supported.  */
+  /* Dictionary isn't supported.  */
   if (flg & 0x20)
     {
       return 0;
@@ -1119,3 +1108,4 @@ grub_zlib_decompress (char *inbuf, grub_size_t insize, grub_off_t off,
   /* FIXME: Check Adler.  */
   return ret;
 }
+

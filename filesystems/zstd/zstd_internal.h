@@ -20,16 +20,7 @@
 /********************************************************
 *  Compiler specifics
 *********************************************************/
-#ifndef __has_attribute         // Optional of course.
-  #define __has_attribute(x) 0  // Compatibility with non-clang compilers.
-#endif
-
-#if __has_attribute(always_inline)
-#define FORCE_INLINE __attribute__((always_inline))
-#else
 #define FORCE_INLINE static __always_inline
-#endif
-
 #define FORCE_NOINLINE static /*noinline*/
 
 /**************************************
@@ -82,7 +73,7 @@ static const U32 repStartValue[ZSTD_REP_NUM] = {1, 4, 8};
 static const size_t ZSTD_fcs_fieldSize[4] = {0, 2, 4, 8};
 static const size_t ZSTD_did_fieldSize[4] = {0, 1, 2, 4};
 
-#define ZSTD_BLOCKHEADERSIZE 3 /* C standard does not allow `static const` variable to be init using another `static const` variable */
+#define ZSTD_BLOCKHEADERSIZE 3 /* C standard doesn't allow `static const` variable to be init using another `static const` variable */
 static const size_t ZSTD_blockHeaderSize = ZSTD_BLOCKHEADERSIZE;
 typedef enum { bt_raw, bt_rle, bt_compressed, bt_reserved } blockType_e;
 
@@ -139,8 +130,8 @@ ZSTD_STATIC void ZSTD_wildcopy(void *dst, const void *src, ptrdiff_t length)
 	BYTE* const oend = op + length;
 	/* Work around https://gcc.gnu.org/bugzilla/show_bug.cgi?id=81388.
 	 * Avoid the bad case where the loop only runs once by handling the
-	 * special case separately. This does not trigger the bug because it
-	 * does not involve pointer/integer overflow.
+	 * special case separately. This doesn't trigger the bug because it
+	 * doesn't involve pointer/integer overflow.
 	 */
 	if (length <= 8)
 		return ZSTD_copy8(dst, src);

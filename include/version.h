@@ -11,12 +11,9 @@
  */
 /*
  * Modified for RefindPlus
- * Copyright (c) 2020-2025 Dayo Akanji (sf.net/u/dakanji/profile)
+ * Copyright (c) 2020-2021 Dayo Akanji (sf.net/u/dakanji/profile)
  *
  * Modifications distributed under the preceding terms.
  */
 
-#define WIDE_STR2(x) L##x
-#define WIDE_STR(x) WIDE_STR2(x)
-#define VERSION_STRING_ASCII "0.14.2.AC Mouse-Fix GCC5"
-#define REFINDPLUS_VERSION WIDE_STR(VERSION_STRING_ASCII)
+#define REFINDPLUS_VERSION L"0.13.2.AG"

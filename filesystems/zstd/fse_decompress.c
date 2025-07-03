@@ -36,12 +36,11 @@
  * You can contact the author at :
  * - Source repository : https://github.com/Cyan4973/FiniteStateEntropy
  */
- /*
-  * Modified for RefindPlus ... Added FSE_MEMxyz calls
-  * Copyright (c) 2025 Dayo Akanji (sf.net/u/dakanji/profile)
-  *
-  * Modifications distributed under the preceding terms.
-  */
+
+/* **************************************************************
+*  Compiler specifics
+****************************************************************/
+#define FORCE_INLINE static __always_inline
 
 /* **************************************************************
 *  Includes
@@ -119,7 +118,7 @@ size_t FSE_buildDTable_wksp(FSE_DTable *dt, const short *normalizedCounter, unsi
 				}
 			}
 		}
-        FSE_MEMCOPY(dt, &DTableH, sizeof (DTableH));
+		memcpy(dt, &DTableH, sizeof (DTableH));
 	}
 
 	/* Spread symbols */

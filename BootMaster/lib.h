@@ -34,21 +34,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 /*
- * Modifications for rEFInd Copyright (c) 2012-2020 Roderick W. Smith
+ * Modifications copyright (c) 2012-2020 Roderick W. Smith
  *
  * Modifications distributed under the terms of the GNU General Public
  * License (GPL) version 3 (GPLv3), a copy of which must be distributed
  * with this source code or binaries made from it.
  *
  */
-/*
- * Modified for RefindPlus
- * Copyright (c) 2020-2025 Dayo Akanji (sf.net/u/dakanji/profile)
- * Portions Copyright (c) 2021 Joe van Tunen (joevt@shaw.ca)
- *
- * Modifications distributed under the preceding terms.
- */
-
 
 #ifndef __LIB_H_
 #define __LIB_H_
@@ -62,8 +54,8 @@
 #endif
 
 #include "global.h"
-#include "../libeg/libeg.h"
-#include "rp_funcs.h"
+
+#include "libeg.h"
 
 //
 // lib module
@@ -75,6 +67,7 @@ typedef struct {
     EFI_STATUS          LastStatus;
     EFI_FILE_HANDLE     DirHandle;
     BOOLEAN             CloseDirHandle;
+    EFI_FILE_INFO       *LastFileInfo;
 } REFIT_DIR_ITER;
 
 #define DISK_KIND_INTERNAL  (0)
@@ -94,15 +87,7 @@ typedef struct {
 // Partition names to be ignored when setting volume name
 #define IGNORE_PARTITION_NAMES L"Microsoft basic data,Linux filesystem,Apple HFS/HFS+"
 
-#if REFIT_DEBUG > 0
-#   define NVRAM_LOG_GET  L"Get Item from"
-#   define NVRAM_LOG_SET  L"Put Item into"
-
-#   define NVRAM_TITLE    L"Variable Storage"
-
-#   define NVRAM_HARDWARE (NVRAM_TITLE L" (Hardware)")
-#   define NVRAM_EMULATED (NVRAM_TITLE L" (Emulated)")
-#endif
+extern EFI_GUID gFreedesktopRootGuid;
 
 INTN FindMem (
     IN VOID  *Buffer,
@@ -128,26 +113,24 @@ EFI_STATUS EfivarSetRaw (
     IN  UINTN      VariableSize,
     IN  BOOLEAN    Persistent
 );
+EFI_STATUS DirNextEntry (
+    IN     EFI_FILE       *Directory,
+    IN OUT EFI_FILE_INFO **DirEntry,
+    IN     UINTN           FilterMode
+);
 
 VOID ScanVolumes (VOID);
 VOID ReinitVolumes (VOID);
 VOID UninitRefitLib (VOID);
-VOID FreeSyncVolumes (VOID);
-VOID FreeVolume (REFIT_VOLUME **Volume);
-VOID SanitiseVolumeName (REFIT_VOLUME **Volume);
+VOID SetVolumeIcons (VOID);
+VOID MyFreePool (IN OUT VOID *Pointer);
+VOID ReleasePtr (IN OUT VOID *Pointer);
 VOID EraseUint32List (IN UINT32_LIST **TheList);
 VOID SetVolumeBadgeIcon (IN OUT REFIT_VOLUME *Volume);
 VOID CleanUpPathNameSlashes (IN OUT CHAR16 *PathName);
-VOID LoadVolumeBadgeIcon (
-    IN OUT REFIT_VOLUME  **Volume
-);
-VOID LoadVolumeIcon (
-    IN OUT REFIT_VOLUME  *Volume
-);
-VOID FreeList (
-    IN OUT VOID ***ListPtr,
-    IN OUT UINTN  *ElementCount
-);
+VOID FreeList (IN OUT VOID ***ListPtr, IN OUT UINTN *ElementCount);
+VOID FreeVolumes (IN OUT REFIT_VOLUME ***ListVolumes, IN OUT UINTN *ListCount);
+VOID FreeVolume (REFIT_VOLUME **Volume);
 VOID AddListElement (
     IN OUT VOID  ***ListPtr,
     IN OUT UINTN   *ElementCount,
@@ -160,14 +143,14 @@ VOID SplitPathName (
     IN OUT CHAR16 **Filename
 );
 VOID DirIterOpen (
-    IN  EFI_FILE_PROTOCOL      *BaseDir,
-    IN  CHAR16                 *RelativePath OPTIONAL,
-    OUT REFIT_DIR_ITER         *DirIter
+    IN  EFI_FILE       *BaseDir,
+    IN  CHAR16         *RelativePath OPTIONAL,
+    OUT REFIT_DIR_ITER *DirIter
 );
 VOID FindVolumeAndFilename (
-    IN  EFI_DEVICE_PATH_PROTOCOL  *loadpath,
-    OUT REFIT_VOLUME             **DeviceVolume,
-    OUT CHAR16                   **loader
+    IN  EFI_DEVICE_PATH  *loadpath,
+    OUT REFIT_VOLUME    **DeviceVolume,
+    OUT CHAR16          **loader
 );
 
 CHAR16 * Basename (IN CHAR16 *Path);
@@ -175,32 +158,20 @@ CHAR16 * FindPath (IN CHAR16* FullPath);
 CHAR16 * FindExtension (IN CHAR16 *Path);
 CHAR16 * FindLastDirName (IN CHAR16 *Path);
 CHAR16 * StripEfiExtension (IN CHAR16 *FileName);
-CHAR16 * StripSetExtension (
-    IN CHAR16 *Extension,
-    IN CHAR16 *FileName
-);
 CHAR16 * GetVolumeName (IN REFIT_VOLUME *Volume);
 CHAR16 * SplitDeviceString (IN OUT CHAR16 *InString);
-CHAR16 * RefitGetBootPathName (
-    IN  EFI_DEVICE_PATH_PROTOCOL  *DevicePath
-);
+
+#if REFIT_DEBUG > 0
+CHAR16 * SanitiseVolumeName (IN REFIT_VOLUME *Volume);
+#endif
 
 BOOLEAN EjectMedia (VOID);
 BOOLEAN HasWindowsBiosBootFiles (IN REFIT_VOLUME *Volume);
 BOOLEAN GuidsAreEqual (IN EFI_GUID *Guid1, IN EFI_GUID *Guid2);
-BOOLEAN RefitMetaiMatch (IN CHAR16 *String, IN CHAR16 *Pattern);
 BOOLEAN FindVolume (IN REFIT_VOLUME **Volume, IN CHAR16 *Identifier);
-BOOLEAN FileExists (IN EFI_FILE_PROTOCOL *BaseDir, IN CHAR16 *RelativePath);
+BOOLEAN FileExists (IN EFI_FILE *BaseDir, IN CHAR16 *RelativePath);
 BOOLEAN SplitVolumeAndFilename (IN OUT CHAR16 **Path, OUT CHAR16 **VolName);
-BOOLEAN VolumeScanAllowed (
-    IN REFIT_VOLUME *Volume,
-    IN BOOLEAN       SkipVentoy,
-    IN BOOLEAN       SkipRootDir
-);
-BOOLEAN VolumeMatchesDescription (
-    IN REFIT_VOLUME *Volume,
-    IN CHAR16       *Description
-);
+BOOLEAN VolumeMatchesDescription (IN REFIT_VOLUME *Volume, IN CHAR16 *Description);
 BOOLEAN FilenameIn (
     IN REFIT_VOLUME *Volume,
     IN CHAR16       *Directory,
@@ -211,7 +182,7 @@ BOOLEAN DirIterNext (
     IN  OUT REFIT_DIR_ITER  *DirIter,
     IN      UINTN            FilterMode,
     IN      CHAR16          *FilePattern OPTIONAL,
-    OUT     EFI_FILE_INFO  **DirEntry
+        OUT EFI_FILE_INFO  **DirEntry
 );
 
 REFIT_VOLUME * CopyVolume (IN REFIT_VOLUME *VolumeToCopy);

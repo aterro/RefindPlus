@@ -9,27 +9,28 @@ http://opensource.org/licenses/bsd-license.php
 
 THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
 WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+
 **/
-/**
+/*
  * Modified for RefindPlus
- * Copyright (c) 2020-2025 Dayo Akanji (sf.net/u/dakanji/profile)
+ * Copyright (c) 2021 Dayo Akanji (sf.net/u/dakanji/profile)
  *
  * Modifications distributed under the preceding terms.
-**/
+ */
 
 #ifdef __MAKEWITH_TIANO
 #include "Platform.h"
 #else
 #include "gnuefi-helper.h"
 #endif
-
-#include "../BootMaster/rp_funcs.h"
 #include "../include/refit_call_wrapper.h"
+
+extern VOID MyFreePool (IN OUT VOID *Pointer);
 
 /**
 
   Find the first instance of this Protocol
-  in the system and return its interface.
+  in the system and return it is interface.
 
 
   @param ProtocolGuid    Provides the protocol to search for
@@ -47,12 +48,14 @@ EFI_STATUS EfiLibLocateProtocol (
     EFI_STATUS  Status;
 
     Status = REFIT_CALL_3_WRAPPER(
-        gBS->LocateProtocol, ProtocolGuid,
-        NULL, (VOID **) Interface
+        gBS->LocateProtocol,
+        ProtocolGuid,
+        NULL,
+        (VOID **) Interface
     );
 
     return Status;
-} // EFI_STATUS EfiLibLocateProtocol()
+}
 
 /**
 
@@ -72,30 +75,33 @@ EFI_FILE_HANDLE EfiLibOpenRoot (
 
     File = NULL;
 
+    //
     // File the file system interface to the device
+    //
     Status = REFIT_CALL_3_WRAPPER(
-        gBS->HandleProtocol, DeviceHandle,
-        &gEfiSimpleFileSystemProtocolGuid, (VOID **) &Volume
+        gBS->HandleProtocol,
+        DeviceHandle,
+        &gEfiSimpleFileSystemProtocolGuid,
+        (VOID **) &Volume
     );
-    if (!EFI_ERROR(Status)) {
-        // Open the root directory of the volume
-        Status = REFIT_CALL_2_WRAPPER(
-            Volume->OpenVolume,
-            Volume, &File
+
+    //
+    // Open the root directory of the volume
+    //
+    if (!EFI_ERROR (Status)) {
+        Status = Volume->OpenVolume (
+            Volume,
+            &File
         );
-        #if REFIT_DEBUG > 0
-        if (EFI_ERROR(Status)) {
-            CheckError (
-                Status,
-                L"in RefindPlus:- 'File Handle to Target Root Directory'"
-            );
-        }
-        #endif
+
+        CheckError (Status, L"While Opening the Root Directory of the Volume");
     }
 
+    //
     // Done
-    return EFI_ERROR(Status) ? NULL : File;
-} // EFI_FILE_HANDLE EfiLibOpenRoot()
+    //
+    return EFI_ERROR (Status) ? NULL : File;
+}
 
 /**
   Duplicate a string.
@@ -120,14 +126,11 @@ CHAR16 * EfiStrDuplicate (
     Size = StrSize (Src); //at least 2bytes
     Dest = AllocateZeroPool (Size);
     if (Dest != NULL) {
-        REFIT_CALL_3_WRAPPER(
-            gBS->CopyMem, Dest,
-            Src, Size
-        );
+        CopyMem (Dest, Src, Size);
     }
 
     return Dest;
-} // CHAR16 * EfiStrDuplicate()
+}
 
 /**
 
@@ -152,8 +155,8 @@ EFI_FILE_INFO * EfiLibFileInfo (
         Status = FHand->GetInfo (FHand, &gEfiFileInfoGuid, &Size, FileInfo);
     }
 
-    return EFI_ERROR(Status) ? NULL : FileInfo;
-} // EFI_FILE_INFO * EfiLibFileInfo()
+    return EFI_ERROR (Status) ? NULL : FileInfo;
+}
 
 EFI_FILE_SYSTEM_INFO * EfiLibFileSystemInfo (
     IN EFI_FILE_HANDLE      FHand
@@ -168,11 +171,12 @@ EFI_FILE_SYSTEM_INFO * EfiLibFileSystemInfo (
         Status = FHand->GetInfo (FHand, &gEfiFileSystemInfoGuid, &Size, FileSystemInfo);
     }
 
-    return EFI_ERROR(Status) ? NULL : FileSystemInfo;
-} // EFI_FILE_SYSTEM_INFO * EfiLibFileSystemInfo()
+    return EFI_ERROR (Status) ? NULL : FileSystemInfo;
+}
 
 /**
   Adjusts the size of a previously allocated buffer.
+
 
   @param OldPool         - A pointer to the buffer whose size is being adjusted.
   @param OldSize         - The size of the current buffer.
@@ -196,14 +200,11 @@ VOID * EfiReallocatePool (
 
     if (OldPool != NULL) {
         if (NewPool != NULL) {
-            REFIT_CALL_3_WRAPPER(
-                gBS->CopyMem, NewPool,
-                OldPool, OldSize < NewSize ? OldSize : NewSize
-            );
+            CopyMem (NewPool, OldPool, OldSize < NewSize ? OldSize : NewSize);
         }
 
-        MY_FREE_POOL(OldPool);
+        MyFreePool (&OldPool);
     }
 
     return NewPool;
-} // VOID * EfiReallocatePool()
+}

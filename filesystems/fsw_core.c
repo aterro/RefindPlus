@@ -614,7 +614,7 @@ fsw_status_t fsw_dnode_lookup_path(struct fsw_dnode *dno,
 
             } else if (fsw_streq_cstr(&lookup_name, "..")) {   // parent directory
                 if (dno->parent == NULL) {
-                    // We cannot go up from the root directory. Caution: Certain apps like the uEFI shell
+                    // We cannot go up from the root directory. Caution: Certain apps like the EFI shell
                     // rely on this behaviour!
                     status = FSW_NOT_FOUND;
                     goto errorexit;
@@ -697,16 +697,7 @@ fsw_status_t fsw_dnode_readlink(struct fsw_dnode *dno, struct fsw_string *target
     if (dno->type != FSW_DNODE_TYPE_SYMLINK)
         return FSW_UNSUPPORTED;
 
-    // CWE-20  [False Positive: Improper Input Validation]
-    //         'fsw_string' used intentionally for string-safe operations
-    //         The type is a structure and not raw C string
-    // CWE-362 [False Positive: TOCTOU Race Condition]
-    //         Executing in single-threaded UEFI context
-    //         Concurrent access not possible
-    /* Flawfinder: ignore */
-    return dno->vol->fstype_table->readlink (
-        dno->vol, dno, target_name
-    );
+    return dno->vol->fstype_table->readlink(dno->vol, dno, target_name);
 }
 
 /**
@@ -777,7 +768,7 @@ fsw_status_t fsw_dnode_resolve(struct fsw_dnode *dno, struct fsw_dnode **target_
     fsw_dnode_retain(dno);
 
     while (--link_count > 0) {
-        // Get full information
+        // get full information
         status = fsw_dnode_fill(dno);
         if (status)
             goto errorexit;
@@ -892,7 +883,7 @@ fsw_status_t fsw_shandle_read(struct fsw_shandle *shand, fsw_u32 *buffer_size_in
         buflen = (fsw_u32)(dno->size - pos);
 
     while (buflen > 0) {
-        // Get extent for the current logical block
+        // get extent for the current logical block
         log_bno = FSW_U64_DIV(pos, vol->log_blocksize);
         if (shand->extent.type == FSW_EXTENT_TYPE_INVALID ||
             log_bno < shand->extent.log_start ||
@@ -912,7 +903,7 @@ fsw_status_t fsw_shandle_read(struct fsw_shandle *shand, fsw_u32 *buffer_size_in
 
         pos_in_extent = pos - shand->extent.log_start * vol->log_blocksize;
 
-        // Dispatch by extent type
+        // dispatch by extent type
         if (shand->extent.type == FSW_EXTENT_TYPE_PHYSBLOCK) {
             // convert to physical block number and offset
             phys_bno = shand->extent.phys_start + FSW_U64_DIV(pos_in_extent, vol->phys_blocksize);
@@ -921,12 +912,12 @@ fsw_status_t fsw_shandle_read(struct fsw_shandle *shand, fsw_u32 *buffer_size_in
             if (copylen > buflen)
                 copylen = buflen;
 
-            // Get one physical block
+            // get one physical block
             status = fsw_block_get(vol, phys_bno, cache_level, (void **) &block_buffer);
             if (status)
                 return status;
 
-            // Copy data from it
+            // copy data from it
             fsw_memcpy(buffer, block_buffer + pos_in_physblock, copylen);
             fsw_block_release(vol, phys_bno, block_buffer);
 

@@ -5,7 +5,7 @@
  *   http://developer.apple.com/technotes/tn/tn1150.html
  *
  * Current limitations:
- *  - Does not support permissions
+ *  - Doesn't support permissions
  *  - Complete Unicode case-insensitiveness disabled (large tables)
  *  - No links
  *  - Only supports pure HFS+ (i.e. no HFS, or HFS+ embedded to HFS)
@@ -24,7 +24,7 @@
  */
 /*
  * Modified for RefindPlus
- * Copyright (c) 2021-2024 Dayo Akanji (sf.net/u/dakanji/profile)
+ * Copyright (c) 2021 Dayo Akanji (sf.net/u/dakanji/profile)
  *
  * Modifications distributed under the preceding terms.
  */
@@ -32,12 +32,14 @@
 #include "fsw_hfs.h"
 
 #ifdef HOST_POSIX
-#   define DPRINT(x)    printf("%s", x)
-#   define BP(msg)      do { printf("ERROR: %s", msg); asm("int3"); } while (0)
+#define DPRINT(x) printf(x)
+#define DPRINT2(x,y) printf(x,y)
+#define BP(msg)    do { printf("ERROR: %s", msg); asm("int3"); } while (0)
 #else
-#   define CONCAT(x, y) x##y
-#   define DPRINT(x)    Print(L"%a", x)
-#   define BP(msg)      DPRINT(msg)
+#define CONCAT(x,y) x##y
+#define DPRINT(x) Print(CONCAT(L,x))
+#define DPRINT2(x,y) Print(CONCAT(L,x), y)
+#define BP(msg) DPRINT(msg)
 #endif
 
 // functions
@@ -85,16 +87,16 @@ struct fsw_fstype_table   FSW_FSTYPE_TABLE_NAME(hfs) = {
     sizeof (struct fsw_hfs_volume),
     sizeof (struct fsw_hfs_dnode),
 
-    fsw_hfs_volume_mount, // Volume open
-    fsw_hfs_volume_free,  // Volume close
-    fsw_hfs_volume_stat,  // Volume info: total_bytes, free_bytes
-    fsw_hfs_dnode_fill,   // Return FSW_SUCCESS;
-    fsw_hfs_dnode_free,	  // Empty
-    fsw_hfs_dnode_stat,	  // Size and times
-    fsw_hfs_get_extent,	  // Get the physical disk block number for the requested logical block number
-    fsw_hfs_dir_lookup,   // Retrieve the directory entry with the given name
-    fsw_hfs_dir_read,	  // Next directory entry when reading a directory
-    fsw_hfs_readlink,     // Return FSW_UNSUPPORTED;
+    fsw_hfs_volume_mount, // volume open
+    fsw_hfs_volume_free,  // volume close
+    fsw_hfs_volume_stat,  // volume info: total_bytes, free_bytes
+    fsw_hfs_dnode_fill,   //return FSW_SUCCESS;
+    fsw_hfs_dnode_free,	  // empty
+    fsw_hfs_dnode_stat,	 //size and times
+    fsw_hfs_get_extent,	 // get the physical disk block number for the requested logical block number
+    fsw_hfs_dir_lookup,  //retrieve the directory entry with the given name
+    fsw_hfs_dir_read,	// next directory entry when reading a directory
+    fsw_hfs_readlink,   // return FSW_UNSUPPORTED;
 };
 
 static const fsw_u16 fsw_latin_case_fold[] =
@@ -179,15 +181,12 @@ fsw_hfs_read_file (struct fsw_hfs_dnode    * dno,
 
         log_bno = (fsw_u32)RShiftU64(pos, block_size_bits);
 
-        if ((fsw_u32)next_len > block_size) {
+        if (   next_len >= 0
+            && (fsw_u32)next_len >  block_size)
             next_len = block_size;
-        }
-
         status = fsw_hfs_read_block(dno, log_bno, off, next_len, buf);
-        if (status) {
+        if (status)
             return -1;
-        }
-
         buf  += next_len;
         pos  += next_len;
         len  -= next_len;
@@ -229,10 +228,7 @@ HFSGetDescription(CICell ih, char *str, long strMaxLen)
   char *name;
   long flags, time;
 
-  if (HFSInitPartition(ih) == -1) {
-      return;
-  }
-
+  if (HFSInitPartition(ih) == -1)  { return; }
 
   // Fill some crucial data structures by side effect.
   dirIndex = 0;
@@ -333,6 +329,7 @@ static fsw_status_t fsw_hfs_volume_mount(struct fsw_hfs_volume *vol)
 
         fsw_block_release(vol, blockno, buffer);
         buffer = NULL;
+        voldesc = NULL;
         fsw_set_blocksize(vol, block_size, block_size);
 
         /* set default/fallback volume name */
@@ -385,7 +382,7 @@ static fsw_status_t fsw_hfs_volume_mount(struct fsw_hfs_volume *vol)
         //nms42
         /* Take Volume Name before tree_header overwritten */
         firstLeafNum = be32_to_cpu(tree_header.firstLeafNode);
-        catfOffset = ((fsw_u64)firstLeafNum) * vol->catalog_tree.node_size;
+        catfOffset = firstLeafNum * vol->catalog_tree.node_size;
 
         r = fsw_hfs_read_file(vol->catalog_tree.file, catfOffset, sizeof (cbuff), cbuff);
 
@@ -445,9 +442,7 @@ long flags, time;
  char              *nodeBuf, *testKey, *entry;
 
 
-if (HFSInitPartition(ih) == -1) {
-    return;
-}
+if (HFSInitPartition(ih) == -1)  { return; }
 
 // Fill some crucial data structures by side effect.
 dirIndex = 0;
@@ -496,14 +491,10 @@ static void fsw_hfs_volume_free(struct fsw_hfs_volume *vol)
  * Get in-depth information on a volume.
  */
 
-static
-fsw_status_t fsw_hfs_volume_stat (
-    struct fsw_hfs_volume  *vol,
-    struct fsw_volume_stat *sb
-) {
-    sb->total_bytes = ((fsw_u64) be32_to_cpu(vol->primary_voldesc->totalBlocks)) << vol->block_size_shift;
-    sb->free_bytes = ((fsw_u64) be32_to_cpu(vol->primary_voldesc->freeBlocks)) << vol->block_size_shift;
-
+static fsw_status_t fsw_hfs_volume_stat(struct fsw_hfs_volume *vol, struct fsw_volume_stat *sb)
+{
+    sb->total_bytes = be32_to_cpu(vol->primary_voldesc->totalBlocks) << vol->block_size_shift;
+    sb->free_bytes = be32_to_cpu(vol->primary_voldesc->freeBlocks) << vol->block_size_shift;
     return FSW_SUCCESS;
 }
 
@@ -524,12 +515,8 @@ static fsw_status_t fsw_hfs_dnode_fill(struct fsw_hfs_volume *vol, struct fsw_hf
  * of the dnode structure.
  */
 
-static
-void fsw_hfs_dnode_free (
-    struct fsw_hfs_volume *vol,
-    struct fsw_hfs_dnode  *dno
-) {
-    return;
+static void fsw_hfs_dnode_free(struct fsw_hfs_volume *vol, struct fsw_hfs_dnode *dno)
+{
 }
 
 static fsw_u32 mac_to_posix(fsw_u32 mac_time)
@@ -651,8 +638,13 @@ fsw_hfs_btree_search (struct fsw_hfs_btree * btree,
 
         count = be16_to_cpu (node->numRecords);
 
+        /* Sanitise count */
+        // DA-TAG: Initial arbitrary large value. Needs review
+        if (count > 100000) {
+            return 0;
+        }
+
 #if 1
-        /* coverity[tainted_data: SUPPRESS] */
         for (rec = 0; rec < count; rec++)
         {
              BTreeKey *currkey;
@@ -781,11 +773,9 @@ typedef struct
     file_info_t             file_info;
 } visitor_parameter_t;
 
-static
-int fsw_hfs_btree_visit_node (
-    BTreeKey *record,
-    void     *param
-) {
+static int
+fsw_hfs_btree_visit_node(BTreeKey *record, void* param)
+{
     visitor_parameter_t* vp = (visitor_parameter_t*)param;
     fsw_u8* base = (fsw_u8*)record->rawData + be16_to_cpu(record->length16) + 2;
     fsw_u16 rec_type =  be16_to_cpu(*(fsw_u16*)base);
@@ -795,16 +785,15 @@ int fsw_hfs_btree_visit_node (
     fsw_u32   i;
     struct fsw_string * file_name;
 
-    if (be32_to_cpu(cat_key->parentID) != vp->parent) {
+    if (be32_to_cpu(cat_key->parentID) != vp->parent)
         return -1;
-    }
 
-    /* Ignore */
-    if (vp->shandle->pos != vp->cur_pos++) {
+    /* not smth we care about */
+    if (vp->shandle->pos != vp->cur_pos++)
         return 0;
-    }
 
-    switch (rec_type) {
+    switch (rec_type)
+    {
         case kHFSPlusFolderRecord:
         {
             HFSPlusCatalogFolder* folder_info = (HFSPlusCatalogFolder*)base;
@@ -824,7 +813,8 @@ int fsw_hfs_btree_visit_node (
             vp->file_info.id = be32_to_cpu(file_info->fileID);
             vp->file_info.type = FSW_DNODE_TYPE_FILE;
             vp->file_info.size = be64_to_cpu(file_info->dataFork.logicalSize);
-            vp->file_info.used = ((fsw_u64)be32_to_cpu(file_info->dataFork.totalBlocks)) << vp->vol->block_size_shift;
+            vp->file_info.used = LShiftU64(be32_to_cpu(file_info->dataFork.totalBlocks),
+                                           vp->vol->block_size_shift);
             vp->file_info.ctime = be32_to_cpu(file_info->createDate);
             vp->file_info.mtime = be32_to_cpu(file_info->contentModDate);
             fsw_memcpy(&vp->file_info.extents, &file_info->dataFork.extents,
@@ -846,13 +836,18 @@ int fsw_hfs_btree_visit_node (
     name_len       = be16_to_cpu(cat_key->nodeName.length);
     file_name      =  vp->file_info.name;
     file_name->len = name_len;
-    /* coverity[tainted_data: SUPPRESS] */
-    fsw_memdup (&file_name->data, &cat_key->nodeName.unicode[0], 2*name_len);
+    /* Sanitise file_name->len */
+    // DA-TAG: Initial arbitrary large value. Needs review
+    if (file_name->len > 100000) {
+        return 0;
+    }
+
+    fsw_memdup(&file_name->data, &cat_key->nodeName.unicode[0], 2*name_len);
     file_name->size = 2*name_len;
     file_name->type = FSW_STRING_TYPE_UTF16;
     name_ptr        = (fsw_u16*)file_name->data;
-    /* coverity[tainted_data: SUPPRESS] */
-    for (i=0; i<name_len; i++) {
+    for (i=0; i<name_len; i++)
+    {
         name_ptr[i] = be16_to_cpu(name_ptr[i]);
     }
     vp->shandle->pos++;
@@ -882,8 +877,16 @@ fsw_hfs_btree_iterate_node (struct fsw_hfs_btree * btree,
       fsw_u32 count =  be16_to_cpu(node->numRecords);
       fsw_u32 next_node;
 
-      /* coverity[tainted_data: SUPPRESS] */
-      for (i = first_rec; i < count; i++) { // Iterate over all records in this node
+      /* Sanitise count */
+      // DA-TAG: Initial arbitrary large value. Needs review
+      if (count > 100000) {
+          status = FSW_VOLUME_CORRUPTED;
+          goto done;
+      }
+
+      /* Iterate over all records in this node.  */
+      for (i = first_rec; i < count; i++)
+      {
           int rv = callback(fsw_hfs_btree_rec (btree, node, i), param);
 
           switch (rv)
@@ -981,12 +984,20 @@ fsw_hfs_cmp_catkey (BTreeKey *key1, BTreeKey *key2)
   p1 = &ckey1->nodeName.unicode[0];
   p2 = &ckey2->nodeName.unicode[0];
   key1Len = be16_to_cpu (ckey1->nodeName.length);
+  /* Sanitise key1Len */
+  if (key1Len == 0 && ckey2->nodeName.length == 0) {
+      return 0;
+  }
+  if (key1Len > 255) {
+      return 0;
+  }
+
   apos = bpos = 0;
 
   while(1)
   {
-    /* coverity[tainted_data: SUPPRESS] */
-    for (lc = 0; lc == 0 && apos < key1Len; apos++) { // get next valid character from ckey1
+    /* get next valid character from ckey1 */
+    for (lc = 0; lc == 0 && apos < key1Len; apos++) {
       ac = be16_to_cpu(p1[apos]);
       lc = ac;
     };
@@ -1036,8 +1047,8 @@ fsw_hfs_cmpi_catkey (BTreeKey *key1, BTreeKey *key2)
 
   while(1)
   {
-    /* coverity[tainted_data: SUPPRESS] */
-    for (lc = 0; lc == 0 && apos < key1Len; apos++) { // get next valid character from ckey1
+    /* get next valid character from ckey1 */
+    for (lc = 0; lc == 0 && apos < key1Len; apos++) {
       ac = be16_to_cpu(p1[apos]);
       lc = ac ? fsw_to_lower(ac) : 0;
     };
@@ -1230,6 +1241,7 @@ static fsw_status_t fsw_hfs_dir_lookup(struct fsw_hfs_volume * vol,
     {
         if (fsw_memeq(g_blacklist[i], catkey.nodeName.unicode, catkey.nodeName.length*2))
         {
+            DPRINT2("Blacklisted %s\n", g_blacklist[i]);
             status = FSW_NOT_FOUND;
             goto done;
         }
@@ -1285,7 +1297,7 @@ static fsw_status_t fsw_hfs_dir_lookup(struct fsw_hfs_volume * vol,
             file_info.id = be32_to_cpu(info->fileID);
             file_info.type = FSW_DNODE_TYPE_FILE;
             file_info.size = be64_to_cpu(info->dataFork.logicalSize);
-            file_info.used = ((fsw_u64)be32_to_cpu(info->dataFork.totalBlocks)) << vol->block_size_shift;
+            file_info.used = LShiftU64(be32_to_cpu(info->dataFork.totalBlocks), vol->block_size_shift);
             file_info.ctime = be32_to_cpu(info->createDate);
             file_info.mtime = be32_to_cpu(info->contentModDate);
             fsw_memcpy(&file_info.extents, &info->dataFork.extents,

@@ -21,13 +21,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
- /*
-  * Modified for RefindPlus
-  * Copyright (c) 2020-2022 Dayo Akanji (sf.net/u/dakanji/profile)
-  *
-  * Modifications distributed under the preceding terms.
-  */
-
 
 #include "fsw_ext4.h"
 
@@ -149,7 +142,7 @@ static fsw_status_t fsw_ext4_volume_mount(struct fsw_ext4_volume *vol)
         (vol->sb->s_feature_incompat & ~(EXT4_FEATURE_INCOMPAT_FILETYPE | EXT4_FEATURE_INCOMPAT_RECOVER |
                                          EXT4_FEATURE_INCOMPAT_EXTENTS | EXT4_FEATURE_INCOMPAT_FLEX_BG |
                                          EXT4_FEATURE_INCOMPAT_64BIT | EXT4_FEATURE_INCOMPAT_META_BG |
-                                         EXT4_FEATURE_INCOMPAT_ENCRYPT | EXT4_FEATURE_INCOMPAT_BG_USE_META_CSUM)))
+                                         EXT4_FEATURE_INCOMPAT_ENCRYPT)))
         return FSW_UNSUPPORTED;
 
     if (vol->sb->s_rev_level == EXT4_DYNAMIC_REV &&
@@ -163,10 +156,10 @@ static fsw_status_t fsw_ext4_volume_mount(struct fsw_ext4_volume *vol)
     if (blocksize < EXT4_MIN_BLOCK_SIZE || blocksize > EXT4_MAX_BLOCK_SIZE)
         return FSW_UNSUPPORTED;
 
-    // Set real blocksize
+    // set real blocksize
     fsw_set_blocksize(vol, blocksize, blocksize);
 
-    // Get other info from superblock
+    // get other info from superblock
     vol->ind_bcnt = EXT4_ADDR_PER_BLOCK(vol->sb);
     vol->dind_bcnt = vol->ind_bcnt * vol->ind_bcnt;
     vol->inode_size = vol->sb->s_inode_size;//EXT4_INODE_SIZE(vol->sb);
@@ -181,7 +174,7 @@ static fsw_status_t fsw_ext4_volume_mount(struct fsw_ext4_volume *vol)
     if (status)
         return status;
 
-    // Size of group descriptor depends on feature.
+    // size of group descriptor depends on feature.
     if (!(vol->sb->s_feature_incompat & EXT4_FEATURE_INCOMPAT_64BIT)) {
         // Default minimal group descriptor size... (this might not be set in old ext2 filesystems, therefor set it!)
         vol->sb->s_desc_size = EXT4_MIN_DESC_SIZE;
@@ -299,7 +292,7 @@ static fsw_status_t fsw_ext4_dnode_fill(struct fsw_ext4_volume *vol, struct fsw_
         return FSW_SUCCESS;
 
 
-    // Read the inode block
+    // read the inode block
     groupno = (fsw_u32) (dno->g.dnode_id - 1) / vol->sb->s_inodes_per_group;
     ino_in_group = (fsw_u32) (dno->g.dnode_id - 1) % vol->sb->s_inodes_per_group;
     ino_bno = vol->inotab_bno[groupno] +
@@ -310,13 +303,13 @@ static fsw_status_t fsw_ext4_dnode_fill(struct fsw_ext4_volume *vol, struct fsw_
     if (status)
         return status;
 
-    // Keep our inode around
+    // keep our inode around
     status = fsw_memdup((void **) &dno->raw, buffer + ino_index * vol->inode_size, vol->inode_size);
     fsw_block_release(vol, ino_bno, buffer);
     if (status)
         return status;
 
-    // Get info from the inode
+    // get info from the inode
     dno->g.size = dno->raw->i_size_lo; // TODO: check docs for 64-bit sized files
 
     if (S_ISREG(dno->raw->i_mode))
@@ -352,13 +345,10 @@ static void fsw_ext4_dnode_free(struct fsw_ext4_volume *vol, struct fsw_ext4_dno
  * callback that converts it to the host-specific format.
  */
 
-static
-fsw_status_t fsw_ext4_dnode_stat (
-    struct fsw_ext4_volume *vol,
-    struct fsw_ext4_dnode  *dno,
-    struct fsw_dnode_stat  *sb
-) {
-    sb->used_bytes = ((fsw_u64)dno->raw->i_blocks_lo) * EXT4_BLOCK_SIZE(vol->sb);   // very, very strange...
+static fsw_status_t fsw_ext4_dnode_stat(struct fsw_ext4_volume *vol, struct fsw_ext4_dnode *dno,
+                                        struct fsw_dnode_stat *sb)
+{
+    sb->used_bytes = dno->raw->i_blocks_lo * EXT4_BLOCK_SIZE(vol->sb);   // very, very strange...
     fsw_store_time_posix(sb, FSW_DNODE_STAT_CTIME, dno->raw->i_ctime);
     fsw_store_time_posix(sb, FSW_DNODE_STAT_ATIME, dno->raw->i_atime);
     fsw_store_time_posix(sb, FSW_DNODE_STAT_MTIME, dno->raw->i_mtime);
@@ -638,8 +628,6 @@ static fsw_status_t fsw_ext4_dir_read(struct fsw_ext4_volume *vol, struct fsw_ex
     //  has opened a storage handle to the directory's storage and keeps it around between
     //  calls.
     FSW_MSG_DEBUG((FSW_MSGSTR("fsw_ext4_dir_read: started reading dir\n")));
-    entry.name_len  = 0;
-    entry.inode     = 0;
 
     while (1) {
         // read next entry

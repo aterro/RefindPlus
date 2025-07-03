@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, Yann Collet, Facebook, Inc.
+ * Copyright (c) 2016-present, Yann Collet, Facebook, Inc.
  * All rights reserved.
  *
  * This source code is licensed under the BSD-style license found in the
@@ -13,12 +13,6 @@
  * either version 2 of the GNU General Public License ("GPL") or BSD license
  * ("BSD").
  */
- /*
-  * Modified for RefindPlus
-  * Copyright (c) 2024 Dayo Akanji (sf.net/u/dakanji/profile)
-  *
-  * Modifications distributed under the preceding terms.
-  */
 
 #ifndef ZSTD_H
 #define ZSTD_H
@@ -98,7 +92,7 @@ static __attribute__((unused)) unsigned int ZSTD_isError(size_t code)
  * @functionResult: The result of a function for which ZSTD_isError() is true.
  *
  * Return:          The ZSTD_ErrorCode corresponding to the functionResult or 0
- *                  if the functionResult is not an error.
+ *                  if the functionResult isn't an error.
  */
 static __attribute__((unused)) ZSTD_ErrorCode ZSTD_getErrorCode(
 	size_t functionResult)
@@ -111,7 +105,7 @@ static __attribute__((unused)) ZSTD_ErrorCode ZSTD_getErrorCode(
 /**
  * enum ZSTD_strategy - zstd compression search strategy
  *
- * from faster to stronger.
+ * From faster to stronger.
  */
 typedef enum {
 	ZSTD_fast,
@@ -180,7 +174,7 @@ typedef struct {
  * ZSTD_getCParams() - returns ZSTD_compressionParameters for selected level
  * @compressionLevel: The compression level from 1 to ZSTD_maxCLevel().
  * @estimatedSrcSize: The estimated source size to compress or 0 if unknown.
- * @dictSize:         The dictionary size or 0 if a dictionary is not being used.
+ * @dictSize:         The dictionary size or 0 if a dictionary isn't being used.
  *
  * Return:            The selected ZSTD_compressionParameters.
  */
@@ -191,7 +185,7 @@ ZSTD_compressionParameters ZSTD_getCParams(int compressionLevel,
  * ZSTD_getParams() - returns ZSTD_parameters for selected level
  * @compressionLevel: The compression level from 1 to ZSTD_maxCLevel().
  * @estimatedSrcSize: The estimated source size to compress or 0 if unknown.
- * @dictSize:         The dictionary size or 0 if a dictionary is not being used.
+ * @dictSize:         The dictionary size or 0 if a dictionary isn't being used.
  *
  * The same as ZSTD_getCParams() except also selects the default frame
  * parameters (all zero).
@@ -437,7 +431,7 @@ size_t ZSTD_getFrameParams(ZSTD_frameParams *fparamsPtr, const void *src,
  * - When a block is considered not compressible enough, ZSTD_compressBlock()
  *   result will be zero. In which case, nothing is produced into `dst`.
  *   + User must test for such outcome and deal directly with uncompressed data
- *   + ZSTD_decompressBlock() does not accept uncompressed data as input!!!
+ *   + ZSTD_decompressBlock() doesn't accept uncompressed data as input!!!
  *   + In case of multiple successive blocks, decoder must be informed of
  *     uncompressed block existence to follow proper history. Use
  *     ZSTD_insertBlock() in such a case.

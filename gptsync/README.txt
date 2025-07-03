@@ -32,7 +32,7 @@ FAT or NTFS partitions, particularly on computers with shared FAT or NTFS
 partitions, multiple Windows installations, or triple-boots with Mac OS X,
 Windows, and Linux. The rEFInd version of gptsync also checks the
 firmware's author and warns if you're trying to run the program on anything
-but Apple firmware, since in most such cases creating a hybrid MBR *IS NOT*
+but Apple firmware, since in most such cases creating a hybrid MBR is *NOT*
 desirable.
 
 Although the Makefile supports building for both EFI (via the "gnuefi" and

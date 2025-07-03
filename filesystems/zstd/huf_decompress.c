@@ -36,12 +36,11 @@
  * You can contact the author at :
  * - Source repository : https://github.com/Cyan4973/FiniteStateEntropy
  */
- /*
-  * Modified for RefindPlus ... Added FSE_MEMxyz calls
-  * Copyright (c) 2025 Dayo Akanji (sf.net/u/dakanji/profile)
-  *
-  * Modifications distributed under the preceding terms.
-  */
+
+/* **************************************************************
+*  Compiler specifics
+****************************************************************/
+#define FORCE_INLINE static __always_inline
 
 /* **************************************************************
 *  Dependencies
@@ -72,7 +71,7 @@ typedef struct {
 static DTableDesc HUF_getDTableDesc(const HUF_DTable *table)
 {
 	DTableDesc dtd;
-	FSE_MEMCOPY(&dtd, table, sizeof (dtd));
+	memcpy(&dtd, table, sizeof (dtd));
 	return dtd;
 }
 
@@ -108,7 +107,7 @@ size_t HUF_readDTableX2_wksp(HUF_DTable *DTable, const void *src, size_t srcSize
 	workspaceSize -= (spaceUsed32 << 2);
 
 	HUF_STATIC_ASSERT(sizeof (DTableDesc) == sizeof (HUF_DTable));
-	/* FSE_MEMSET(huffWeight, 0, sizeof (huffWeight)); */ /* is not necessary, even though some analyzer complain ... */
+	/* memset(huffWeight, 0, sizeof (huffWeight)); */ /* is not necessary, even though some analyzer complain ... */
 
 	iSize = HUF_readStats_wksp(huffWeight, HUF_SYMBOLVALUE_MAX + 1, rankVal, &nbSymbols, &tableLog, src, srcSize, workspace, workspaceSize);
 	if (HUF_isError(iSize))
@@ -121,7 +120,7 @@ size_t HUF_readDTableX2_wksp(HUF_DTable *DTable, const void *src, size_t srcSize
 			return ERROR(tableLog_tooLarge); /* DTable too small, Huffman tree cannot fit in */
 		dtd.tableType = 0;
 		dtd.tableLog = (BYTE)tableLog;
-		FSE_MEMCOPY(DTable, &dtd, sizeof (dtd));
+		memcpy(DTable, &dtd, sizeof (dtd));
 	}
 
 	/* Calculate starting value for each rank */
@@ -381,10 +380,10 @@ static void HUF_fillDTableX4Level2(HUF_DEltX4 *DTable, U32 sizeLog, const U32 co
 	U32 rankVal[HUF_TABLELOG_MAX + 1];
 
 	/* get pre-calculated rankVal */
-	FSE_MEMCOPY(rankVal, rankValOrigin, sizeof (rankVal));
+	memcpy(rankVal, rankValOrigin, sizeof (rankVal));
 
 	/* fill skipped values */
-	if (minWeight > 1 && minWeight < (HUF_TABLELOG_MAX + 1)) {
+	if (minWeight > 1) {
 		U32 i, skipSize = rankVal[minWeight];
 		ZSTD_writeLE16(&(DElt.sequence), baseSeq);
 		DElt.nbBits = (BYTE)(consumed);
@@ -428,7 +427,7 @@ static void HUF_fillDTableX4(HUF_DEltX4 *DTable, const U32 targetLog, const sort
 	const U32 minBits = nbBitsBaseline - maxWeight;
 	U32 s;
 
-	FSE_MEMCOPY(rankVal, rankValOrigin, sizeof (rankVal));
+	memcpy(rankVal, rankValOrigin, sizeof (rankVal));
 
 	/* fill DTable */
 	for (s = 0; s < sortedListSize; s++) {
@@ -498,12 +497,12 @@ size_t HUF_readDTableX4_wksp(HUF_DTable *DTable, const void *src, size_t srcSize
 	workspaceSize -= (spaceUsed32 << 2);
 
 	rankStart = rankStart0 + 1;
-	FSE_MEMSET(rankStats, 0, sizeof (U32) * (2 * HUF_TABLELOG_MAX + 2 + 1));
+	memset(rankStats, 0, sizeof (U32) * (2 * HUF_TABLELOG_MAX + 2 + 1));
 
 	HUF_STATIC_ASSERT(sizeof (HUF_DEltX4) == sizeof (HUF_DTable)); /* if compiler fails here, assertion is wrong */
 	if (maxTableLog > HUF_TABLELOG_MAX)
 		return ERROR(tableLog_tooLarge);
-	/* FSE_MEMSET(weightList, 0, sizeof (weightList)); */ /* is not necessary, even though some analyzer complain ... */
+	/* memset(weightList, 0, sizeof (weightList)); */ /* is not necessary, even though some analyzer complain ... */
 
 	iSize = HUF_readStats_wksp(weightList, HUF_SYMBOLVALUE_MAX + 1, rankStats, &nbSymbols, &tableLog, src, srcSize, workspace, workspaceSize);
 	if (HUF_isError(iSize))
@@ -571,14 +570,14 @@ size_t HUF_readDTableX4_wksp(HUF_DTable *DTable, const void *src, size_t srcSize
 
 	dtd.tableLog = (BYTE)maxTableLog;
 	dtd.tableType = 1;
-	FSE_MEMCOPY(DTable, &dtd, sizeof (dtd));
+	memcpy(DTable, &dtd, sizeof (dtd));
 	return iSize;
 }
 
 static U32 HUF_decodeSymbolX4(void *op, BIT_DStream_t *DStream, const HUF_DEltX4 *dt, const U32 dtLog)
 {
 	size_t const val = BIT_lookBitsFast(DStream, dtLog); /* note : dtLog >= 1 */
-	FSE_MEMCOPY(op, dt + val, 2);
+	memcpy(op, dt + val, 2);
 	BIT_skipBits(DStream, dt[val].nbBits);
 	return dt[val].length;
 }
@@ -586,7 +585,7 @@ static U32 HUF_decodeSymbolX4(void *op, BIT_DStream_t *DStream, const HUF_DEltX4
 static U32 HUF_decodeLastSymbolX4(void *op, BIT_DStream_t *DStream, const HUF_DEltX4 *dt, const U32 dtLog)
 {
 	size_t const val = BIT_lookBitsFast(DStream, dtLog); /* note : dtLog >= 1 */
-	FSE_MEMCOPY(op, dt + val, 1);
+	memcpy(op, dt + val, 1);
 	if (dt[val].length == 1)
 		BIT_skipBits(DStream, dt[val].nbBits);
 	else {
@@ -880,7 +879,7 @@ size_t HUF_readStats_wksp(BYTE *huffWeight, size_t hwSize, U32 *rankStats, U32 *
 	if (!srcSize)
 		return ERROR(srcSize_wrong);
 	iSize = ip[0];
-	/* FSE_MEMSET(huffWeight, 0, hwSize);   */ /* is not necessary, even though some analyzer complain ... */
+	/* memset(huffWeight, 0, hwSize);   */ /* is not necessary, even though some analyzer complain ... */
 
 	if (iSize >= 128) { /* special header */
 		oSize = iSize - 127;
@@ -906,7 +905,7 @@ size_t HUF_readStats_wksp(BYTE *huffWeight, size_t hwSize, U32 *rankStats, U32 *
 	}
 
 	/* collect weight stats */
-	FSE_MEMSET(rankStats, 0, (HUF_TABLELOG_MAX + 1) * sizeof (U32));
+	memset(rankStats, 0, (HUF_TABLELOG_MAX + 1) * sizeof (U32));
 	weightTotal = 0;
 	{
 		U32 n;

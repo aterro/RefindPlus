@@ -1,7 +1,7 @@
 /* mok/mok.c
  *
- * Based mostly on shim.c by Matthew J. Garrett/Red Hat
- * (see copyright notice below)
+ * Based mostly on shim.c by Matthew J. Garrett/Red Hat (see below
+ * copyright notice).
  *
  * Code to perform Secure Boot verification of boot loader programs
  * using the Shim program and its Machine Owner Keys (MOKs), to
@@ -40,126 +40,108 @@
  * OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Significant portions of this code are derived from Tianocore
- * (http://tianocore.sf.net) and are Copyright 2009-2012 The Intel Corporation.
+ * (http://tianocore.sf.net) and are Copyright 2009-2012 Intel
+ * Corporation.
  */
- /*
-  * Modified for RefindPlus
-  * Copyright (c) 2021-2024 Dayo Akanji (sf.net/u/dakanji/profile)
-  * Portions Copyright (c) 2021 Joe van Tunen (joevt@shaw.ca)
-  *
-  * Modifications distributed under the preceding terms.
-  */
 
 #include "global.h"
 #include "mok.h"
+#include "../include/refit_call_wrapper.h"
 #include "../BootMaster/lib.h"
 #include "../BootMaster/screenmgt.h"
-#include "../include/refit_call_wrapper.h"
-
-BOOLEAN ShimFound  = FALSE;
-BOOLEAN SecureFlag = FALSE;
 
 
 /*
- * Check whether we are in Secure Boot mode
+ * Check whether we are in Secure Boot and user mode
  */
 BOOLEAN secure_mode (VOID) {
-    #if REFIT_DEBUG > 0
-    BOOLEAN CheckMute = FALSE;
-    #endif
+    EFI_STATUS  status;
+    EFI_GUID    global_var = EFI_GLOBAL_VARIABLE;
+    UINTN       charsize;
+    UINT8      *sb        = NULL;
+    UINT8      *setupmode = NULL;
 
-    EFI_STATUS      Status;
-    EFI_GUID        GlobalVar = EFI_GLOBAL_VARIABLE;
-    UINTN           CharSize;
-    UINT8          *SetupMode;
-    UINT8          *Sec;
-
-    static BOOLEAN  DoneOnce = FALSE;
-
+    static BOOLEAN DoneOnce   = FALSE;
+    static BOOLEAN SecureMode = FALSE;
 
     if (DoneOnce) {
-        return SecureFlag;
+        return SecureMode;
     }
 
-    #if REFIT_DEBUG > 0
-    MY_MUTELOGGER_SET;
-    #endif
-    Sec = NULL;
-    Status = EfivarGetRaw (
-        &GlobalVar, L"SecureBoot",
-        (VOID **) &Sec, &CharSize
+    status = EfivarGetRaw (
+        &global_var,
+        L"SecureBoot",
+        (VOID **) &sb,
+        &charsize
     );
 
-    // DA-TAG Investigate This
-    //        More paranoia here?
-    if (*Sec != 1         ||
-        EFI_ERROR(Status) ||
-        CharSize != sizeof (CHAR8)
+    /* FIXME - more paranoia here? */
+    if (status != EFI_SUCCESS ||
+        charsize != sizeof (CHAR8) ||
+        *sb != 1
     ) {
-        SecureFlag = FALSE;
+        SecureMode = FALSE;
     }
     else {
-        SetupMode = NULL;
-        Status = EfivarGetRaw (
-            &GlobalVar, L"SetupMode",
-            (VOID **) &SetupMode, &CharSize
+        status = EfivarGetRaw (
+            &global_var,
+            L"SetupMode",
+            (VOID **) &setupmode,
+            &charsize
         );
-        if (*SetupMode == 1    &&
-            !EFI_ERROR(Status) &&
-            CharSize == sizeof (CHAR8)
+
+        if (status == EFI_SUCCESS &&
+            charsize == sizeof (CHAR8) &&
+            *setupmode == 1
         ) {
-            SecureFlag = FALSE;
+            SecureMode = FALSE;
         }
         else {
-            SecureFlag = TRUE;
+            SecureMode = TRUE;
         }
-        MY_FREE_POOL(SetupMode);
     }
-    #if REFIT_DEBUG > 0
-    MY_MUTELOGGER_OFF;
-    #endif
 
     DoneOnce = TRUE;
 
-    MY_FREE_POOL(Sec);
+    MyFreePool (&sb);
+    MyFreePool (&setupmode);
 
-    return SecureFlag;
+    return SecureMode;
 } // secure_mode()
 
-// Returns TRUE if the shim program is available to verify items or FALSE if not
+// Returns TRUE if the shim program is available to verify binaries,
+// FALSE if not
 BOOLEAN ShimLoaded (VOID) {
-    EFI_STATUS   Status;
     SHIM_LOCK   *shim_lock;
-    EFI_GUID     ShimLockGuid = SHIM_LOCK_GUID;
+    EFI_GUID    ShimLockGuid = SHIM_LOCK_GUID;
 
-
-    Status = REFIT_CALL_3_WRAPPER(
-        gBS->LocateProtocol, &ShimLockGuid,
-        NULL, (VOID **) &shim_lock
+    return (
+        REFIT_CALL_3_WRAPPER(
+            gBS->LocateProtocol,
+            &ShimLockGuid,
+            NULL,
+            (VOID **) &shim_lock
+        ) == EFI_SUCCESS
     );
-
-    ShimFound = (EFI_ERROR(Status)) ? FALSE : TRUE;
-
-    return ShimFound;
 } // ShimLoaded()
 
-// The following is based on the 'grub_linuxefi_secure_validate()'
-// function in Fedora's version of GRUB 2.
-// Returns TRUE if the specified data is validated by Shim's MOK or FALSE if not
+// The following is based on the grub_linuxefi_secure_validate() function in Fedora's
+// version of GRUB 2.
+// Returns TRUE if the specified data is validated by Shim's MOK, FALSE otherwise
 BOOLEAN ShimValidate (
-    VOID   *data,
-    UINT32  size
+    VOID *data,
+    UINT32 size
 ) {
     SHIM_LOCK   *shim_lock;
     EFI_GUID    ShimLockGuid = SHIM_LOCK_GUID;
 
-    if (data != NULL &&
-        (
-            REFIT_CALL_3_WRAPPER(
-                gBS->LocateProtocol, &ShimLockGuid,
-                NULL, (VOID **) &shim_lock
-            ) == EFI_SUCCESS
-        )
+    if ((data != NULL) &&
+        (REFIT_CALL_3_WRAPPER(
+            gBS->LocateProtocol,
+            &ShimLockGuid,
+            NULL,
+            (VOID **) &shim_lock
+        ) == EFI_SUCCESS)
     ) {
         if (!shim_lock) {
             return FALSE;

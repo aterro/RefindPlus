@@ -19,39 +19,31 @@
  *  You should have received a copy of the GNU General Public License
  *  along with GRUB.  If not, see <http://www.gnu.org/licenses/>.
  */
- /*
-  * Modified for RefindPlus
-  * Copyright (c) 2021 Dayo Akanji (sf.net/u/dakanji/profile)
-  *
-  * Modifications distributed under the preceding terms.
-  */
-
 
 static uint32_t crc32c_table [256];
-
-
-static
-uint32_t reflect (uint32_t ref, int len)
-  {
-    uint32_t result = 0;
-    int i;
-
-    for (i = 1; i <= len; i++)
-      {
-        if (ref & 1)
-          result |= 1 << (len - i);
-        ref >>= 1;
-      }
-
-    return result;
-  }
 
 static void
 init_crc32c_table (void)
 {
+  auto uint32_t reflect (uint32_t ref, int len);
+  uint32_t reflect (uint32_t ref, int len)
+    {
+      uint32_t result = 0;
+      int i;
+
+      for (i = 1; i <= len; i++)
+        {
+          if (ref & 1)
+            result |= 1 << (len - i);
+          ref >>= 1;
+        }
+
+      return result;
+    }
+
   static int crc32c_table_inited;
   if(crc32c_table_inited)
-    return;
+	  return;
   crc32c_table_inited = 1;
 
   uint32_t polynomial = 0x1edc6f41;
@@ -62,7 +54,7 @@ init_crc32c_table (void)
       crc32c_table[i] = reflect(i, 8) << 24;
       for (j = 0; j < 8; j++)
         crc32c_table[i] = (crc32c_table[i] << 1) ^
-            ((crc32c_table[i] & (1 << 31)) ? polynomial : 0);
+            (crc32c_table[i] & (1 << 31) ? polynomial : 0);
       crc32c_table[i] = reflect(crc32c_table[i], 32);
     }
 }

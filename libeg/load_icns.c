@@ -61,24 +61,19 @@ VOID egDecompressIcnsRLE (
     pp      =  PixelData;
     pp_left =  PixelCount;
 
-    // Decode
+    // decode
     while (cp + 1 < cp_end && pp_left > 0) {
         len = *cp++;
-
-        if (len & 0x80) {
-            // Compressed data: repeat next byte
+        if (len & 0x80) {   // compressed data: repeat next byte
             len -= 125;
-            if (len > pp_left) {
+            if (len > pp_left)
                 break;
-            }
             value = *cp++;
             for (i = 0; i < len; i++) {
                 *pp = value;
                 pp += 4;
             }
-        }
-        else {
-            // Uncompressed data: copy bytes
+        } else {            // uncompressed data: copy bytes
             len++;
             if (len > pp_left || cp + len > cp_end)
                 break;
@@ -90,7 +85,11 @@ VOID egDecompressIcnsRLE (
         pp_left -= len;
     }
 
-    // Record what is left of the compressed data stream
+    if (pp_left > 0) {
+        Print (L" egDecompressIcnsRLE: still need %d bytes of pixel data\n", pp_left);
+    }
+
+    // record what's left of the compressed data stream
     *CompData = cp;
     *CompLen = (UINTN)(cp_end - cp);
 }
@@ -265,9 +264,7 @@ EG_IMAGE * egDecodeICNS (
         egInsertPlane (MaskPtr, PLPTR(NewImage, a), PixelCount);
     }
     else {
-        // Alpha is Unavailable or Not Required
-        // Default to 'Opaque' if Alpha was Required but Unavailable or to 'Zero' if it was Not Required
-        // NB: 'Zero' clears unused bytes and is not the opposite of opaque in this case
+        // Default to 'Opaque' if Alpha is Unavailable or to Zero if Not Required
         egSetPlane (PLPTR(NewImage, a), WantAlpha ? 255 : 0, PixelCount);
     }
 

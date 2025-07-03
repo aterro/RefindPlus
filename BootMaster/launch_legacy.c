@@ -1,6 +1,6 @@
 /*
  * BootMaster/launch_legacy.c
- * Functions related to Legacy BIOS Booting
+ * Functions related to Legacy (BIOS) Booting
  *
  * Copyright (c) 2006 Christoph Pfisterer
  * All rights reserved.
@@ -34,7 +34,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 /*
- * Modifications for rEFInd Copyright (c) 2012-2015 Roderick W. Smith
+ * Modifications copyright (c) 2012-2015 Roderick W. Smith
  *
  * Modifications distributed under the terms of the GNU General Public
  * License (GPL) version 3 (GPLv3), or (at your option) any later version.
@@ -42,28 +42,26 @@
  */
 /*
  * Modified for RefindPlus
- * Copyright (c) 2020-2025 Dayo Akanji (sf.net/u/dakanji/profile)
+ * Copyright (c) 2020-2021 Dayo Akanji (sf.net/u/dakanji/profile)
  *
  * Modifications distributed under the preceding terms.
  */
 
 #include "global.h"
 #include "icns.h"
+#include "launch_legacy.h"
 #include "lib.h"
 #include "menu.h"
-#include "scan.h"
-#include "mystrings.h"
-#include "screenmgt.h"
-#include "launch_legacy.h"
 #include "../include/refit_call_wrapper.h"
+#include "screenmgt.h"
 #include "../include/syslinux_mbr.h"
+#include "mystrings.h"
 #include "../EfiLib/BdsHelper.h"
 #include "../EfiLib/legacy.h"
 #include "../include/Handle.h"
 
-extern BOOLEAN            IsBoot;
-extern BOOLEAN            DisplayLoader;
-extern REFIT_MENU_SCREEN *MainMenu;
+extern REFIT_MENU_ENTRY MenuEntryReturn;
+extern REFIT_MENU_SCREEN MainMenu;
 
 #ifndef __MAKEWITH_GNUEFI
 #define LibLocateHandle gBS->LocateHandleBuffer
@@ -72,8 +70,8 @@ extern REFIT_MENU_SCREEN *MainMenu;
 
 #define MAX_DISCOVERED_PATHS (16)
 
-// Early 2006 Core Duo / Core Solo models
-static UINT8 LegacyLoaderDevicePathData01[] = {
+// early 2006 Core Duo / Core Solo models
+static UINT8 LegacyLoaderDevicePath1Data[] = {
     0x01, 0x03, 0x18, 0x00, 0x0B, 0x00, 0x00, 0x00,
     0x00, 0x00, 0xE0, 0xFF, 0x00, 0x00, 0x00, 0x00,
     0xFF, 0xFF, 0xF9, 0xFF, 0x00, 0x00, 0x00, 0x00,
@@ -82,8 +80,8 @@ static UINT8 LegacyLoaderDevicePathData01[] = {
     0x01, 0xAE, 0xF2, 0xB7, 0x7F, 0xFF, 0x04, 0x00,
 };
 
-// Mid 2006 Mac Pro (probably other Core 2 models)
-static UINT8 LegacyLoaderDevicePathData02[] = {
+// mid-2006 Mac Pro (and probably other Core 2 models)
+static UINT8 LegacyLoaderDevicePath2Data[] = {
     0x01, 0x03, 0x18, 0x00, 0x0B, 0x00, 0x00, 0x00,
     0x00, 0x00, 0xE0, 0xFF, 0x00, 0x00, 0x00, 0x00,
     0xFF, 0xFF, 0xF7, 0xFF, 0x00, 0x00, 0x00, 0x00,
@@ -92,8 +90,8 @@ static UINT8 LegacyLoaderDevicePathData02[] = {
     0x01, 0xAE, 0xF2, 0xB7, 0x7F, 0xFF, 0x04, 0x00,
 };
 
-// Mid 2007 MBP ("Santa Rosa" based models)
-static UINT8 LegacyLoaderDevicePathData03[] = {
+// mid-2007 MBP ("Santa Rosa" based models)
+static UINT8 LegacyLoaderDevicePath3Data[] = {
     0x01, 0x03, 0x18, 0x00, 0x0B, 0x00, 0x00, 0x00,
     0x00, 0x00, 0xE0, 0xFF, 0x00, 0x00, 0x00, 0x00,
     0xFF, 0xFF, 0xF8, 0xFF, 0x00, 0x00, 0x00, 0x00,
@@ -102,8 +100,8 @@ static UINT8 LegacyLoaderDevicePathData03[] = {
     0x01, 0xAE, 0xF2, 0xB7, 0x7F, 0xFF, 0x04, 0x00,
 };
 
-// Early 2008 MBA
-static UINT8 LegacyLoaderDevicePathData04[] = {
+// early-2008 MBA
+static UINT8 LegacyLoaderDevicePath4Data[] = {
     0x01, 0x03, 0x18, 0x00, 0x0B, 0x00, 0x00, 0x00,
     0x00, 0x00, 0xC0, 0xFF, 0x00, 0x00, 0x00, 0x00,
     0xFF, 0xFF, 0xF8, 0xFF, 0x00, 0x00, 0x00, 0x00,
@@ -112,8 +110,8 @@ static UINT8 LegacyLoaderDevicePathData04[] = {
     0x01, 0xAE, 0xF2, 0xB7, 0x7F, 0xFF, 0x04, 0x00,
 };
 
-// Late 2008 MB/MBP (NVidia chipset)
-static UINT8 LegacyLoaderDevicePathData05[] = {
+// late-2008 MB/MBP (NVidia chipset)
+static UINT8 LegacyLoaderDevicePath5Data[] = {
     0x01, 0x03, 0x18, 0x00, 0x0B, 0x00, 0x00, 0x00,
     0x00, 0x40, 0xCB, 0xFF, 0x00, 0x00, 0x00, 0x00,
     0xFF, 0xBF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00,
@@ -122,12 +120,12 @@ static UINT8 LegacyLoaderDevicePathData05[] = {
     0x01, 0xAE, 0xF2, 0xB7, 0x7F, 0xFF, 0x04, 0x00,
 };
 
-static EFI_DEVICE_PATH_PROTOCOL *LegacyLoaderList[] = {
-    (EFI_DEVICE_PATH_PROTOCOL *) LegacyLoaderDevicePathData01,
-    (EFI_DEVICE_PATH_PROTOCOL *) LegacyLoaderDevicePathData02,
-    (EFI_DEVICE_PATH_PROTOCOL *) LegacyLoaderDevicePathData03,
-    (EFI_DEVICE_PATH_PROTOCOL *) LegacyLoaderDevicePathData04,
-    (EFI_DEVICE_PATH_PROTOCOL *) LegacyLoaderDevicePathData05,
+static EFI_DEVICE_PATH *LegacyLoaderList[] = {
+    (EFI_DEVICE_PATH *) LegacyLoaderDevicePath1Data,
+    (EFI_DEVICE_PATH *) LegacyLoaderDevicePath2Data,
+    (EFI_DEVICE_PATH *) LegacyLoaderDevicePath3Data,
+    (EFI_DEVICE_PATH *) LegacyLoaderDevicePath4Data,
+    (EFI_DEVICE_PATH *) LegacyLoaderDevicePath5Data,
     NULL
 };
 
@@ -139,47 +137,43 @@ UINT8 LegacyLoaderMediaPathData[] = {
 };
 
 static
-EFI_DEVICE_PATH_PROTOCOL *LegacyLoaderMediaPath = (EFI_DEVICE_PATH_PROTOCOL *) LegacyLoaderMediaPathData;
+EFI_DEVICE_PATH *LegacyLoaderMediaPath = (EFI_DEVICE_PATH *) LegacyLoaderMediaPathData;
 
 static
 EFI_GUID AppleVariableVendorID = { 0x7C436110, 0xAB2A, 0x4BBB, \
     { 0xA8, 0x80, 0xFE, 0x41, 0x99, 0x5C, 0x9F, 0x82 } };
 
-BOOLEAN FirstLegacyScan  = TRUE;
+EFI_GUID EfiGlobalVariableGuid = { 0x8BE4DF61, 0x93CA, 0x11D2, \
+    { 0xAA, 0x0D, 0x00, 0xE0, 0x98, 0x03, 0x2B, 0x8C } };
+
+BOOLEAN FirstLegacyScan = TRUE;
+
 
 static
 EFI_STATUS ActivateMbrPartition (
-    IN EFI_BLOCK_IO_PROTOCOL *BlockIO,
-    IN UINTN                  PartitionIndex
+    IN EFI_BLOCK_IO *BlockIO,
+    IN UINTN         PartitionIndex
 ) {
     EFI_STATUS           Status;
-    UINTN                i;
-    UINTN                LogicalPartitionIndex;
     UINT8                SectorBuffer[512];
-    UINT32               NextExtCurrent;
-    UINT32               ExtCurrent;
-    UINT32               ExtBase;
+    MBR_PARTITION_INFO  *MbrTable, *EMbrTable;
+    UINT32               ExtBase, ExtCurrent, NextExtCurrent;
+    UINTN                LogicalPartitionIndex = 4;
+    UINTN                i;
     BOOLEAN              HaveBootCode;
-    MBR_PARTITION_INFO  *MbrTableEx;
-    MBR_PARTITION_INFO  *MbrTable;
 
-
-    // Read MBR
-    Status = REFIT_CALL_5_WRAPPER(
-        BlockIO->ReadBlocks, BlockIO,
-        BlockIO->Media->MediaId, 0,
-        512, SectorBuffer
-    );
-    if (EFI_ERROR(Status)) {
+    // read MBR
+    Status = REFIT_CALL_5_WRAPPER(BlockIO->ReadBlocks, BlockIO, BlockIO->Media->MediaId, 0, 512, SectorBuffer);
+    if (EFI_ERROR (Status)) {
         return Status;
     }
 
     if (*((UINT16 *)(SectorBuffer + 510)) != 0xaa55) {
-        // Safety Measure #1
+        // safety measure #1
         return EFI_NOT_FOUND;
     }
 
-    // Add boot code if necessary
+    // add boot code if necessary
     HaveBootCode = FALSE;
     for (i = 0; i < MBR_BOOTCODE_SIZE; i++) {
         if (SectorBuffer[i] != 0) {
@@ -189,24 +183,17 @@ EFI_STATUS ActivateMbrPartition (
     } // for
 
     if (!HaveBootCode) {
-        // No boot code found in the MBR ... Add syslinux MBR code
-        REFIT_CALL_3_WRAPPER(
-            gBS->SetMem, SectorBuffer,
-            MBR_BOOTCODE_SIZE, 0
-        );
-        REFIT_CALL_3_WRAPPER(
-            gBS->CopyMem, SectorBuffer,
-            syslinux_mbr, SYSLINUX_MBR_SIZE
-        );
+        // no boot code found in the MBR, add the syslinux MBR code
+        SetMem (SectorBuffer, MBR_BOOTCODE_SIZE, 0);
+        CopyMem (SectorBuffer, syslinux_mbr, SYSLINUX_MBR_SIZE);
     }
 
-    // Set partition as active
-    MbrTable = (MBR_PARTITION_INFO *) (SectorBuffer + 446);
+    // set the partition active
+    MbrTable = (MBR_PARTITION_INFO *)(SectorBuffer + 446);
     ExtBase = 0;
     for (i = 0; i < 4; i++) {
         if (MbrTable[i].Flags != 0x00 && MbrTable[i].Flags != 0x80) {
-            // Safety Measure #2
-            return EFI_NOT_FOUND;
+            return EFI_NOT_FOUND;   // safety measure #2
         }
 
         if (i == PartitionIndex) {
@@ -221,84 +208,84 @@ EFI_STATUS ActivateMbrPartition (
         }
     }
 
-    // Write MBR
+    // write MBR
     Status = REFIT_CALL_5_WRAPPER(
-        BlockIO->WriteBlocks, BlockIO,
-        BlockIO->Media->MediaId, 0,
-        512, SectorBuffer
+        BlockIO->WriteBlocks,
+        BlockIO,
+        BlockIO->Media->MediaId,
+        0,
+        512,
+        SectorBuffer
     );
-    if (EFI_ERROR(Status)) {
-        // Early Return
+
+    if (EFI_ERROR (Status)) {
         return Status;
     }
 
     if (PartitionIndex >= 4) {
-        // Must activate a logical partition ... Walk the EMBR chain
-        //
-        // NB: ExtBase was set above while looking at the MBR table
+        // we have to activate a logical partition, so walk the EMBR chain
+
+        // NOTE: ExtBase was set above while looking at the MBR table
         for (ExtCurrent = ExtBase; ExtCurrent; ExtCurrent = NextExtCurrent) {
-            // Read current EMBR
+            // read current EMBR
             Status = REFIT_CALL_5_WRAPPER(
-                BlockIO->ReadBlocks, BlockIO,
-                BlockIO->Media->MediaId, ExtCurrent,
-                512, SectorBuffer
+                BlockIO->ReadBlocks,
+                BlockIO,
+                BlockIO->Media->MediaId,
+                ExtCurrent,
+                512,
+                SectorBuffer
             );
-            if (EFI_ERROR(Status)) {
+
+            if (EFI_ERROR (Status)) {
                 return Status;
             }
 
             if (*((UINT16 *)(SectorBuffer + 510)) != 0xaa55) {
-                // Safety Measure #3
-                return EFI_NOT_FOUND;
+                return EFI_NOT_FOUND;  // safety measure #3
             }
 
-            // Scan EMBR ... Set appropriate partition active
+            // scan EMBR, set appropriate partition active
+            EMbrTable = (MBR_PARTITION_INFO *)(SectorBuffer + 446);
             NextExtCurrent = 0;
-            LogicalPartitionIndex = 4;
-            MbrTableEx = (MBR_PARTITION_INFO *) (SectorBuffer + 446);
             for (i = 0; i < 4; i++) {
-                if (MbrTableEx[i].Flags != 0x00 &&
-                    MbrTableEx[i].Flags != 0x80
-                ) {
-                    // Safety Measure #4
-                    return EFI_NOT_FOUND;
+                if (EMbrTable[i].Flags != 0x00 && EMbrTable[i].Flags != 0x80) {
+                    return EFI_NOT_FOUND;   // safety measure #4
                 }
 
-                if (MbrTableEx[i].Size == 0 ||
-                    MbrTableEx[i].StartLBA == 0
-                ) {
+                if (EMbrTable[i].StartLBA == 0 || EMbrTable[i].Size == 0) {
                     break;
                 }
 
-                if (IS_EXTENDED_PART_TYPE(MbrTableEx[i].Type)) {
-                    // Link to next EMBR
-                    NextExtCurrent = ExtBase + MbrTableEx[i].StartLBA;
-                    MbrTableEx[i].Flags = (PartitionIndex >= LogicalPartitionIndex)
-                        ? 0x80 : 0x00;
-
+                if (IS_EXTENDED_PART_TYPE(EMbrTable[i].Type)) {
+                    // link to next EMBR
+                    NextExtCurrent = ExtBase + EMbrTable[i].StartLBA;
+                    EMbrTable[i].Flags = (PartitionIndex >= LogicalPartitionIndex) ? 0x80 : 0x00;
                     break;
                 }
-
-                // Logical Partition
-                MbrTableEx[i].Flags = (PartitionIndex == LogicalPartitionIndex)
-                    ? 0x80 : 0x00;
-
-                LogicalPartitionIndex++;
+                else {
+                    // logical partition
+                    EMbrTable[i].Flags = (PartitionIndex == LogicalPartitionIndex) ? 0x80 : 0x00;
+                    LogicalPartitionIndex++;
+                }
             }
 
-            // Write Current EMBR
+            // write current EMBR
             Status = REFIT_CALL_5_WRAPPER(
-                BlockIO->WriteBlocks, BlockIO,
-                BlockIO->Media->MediaId, ExtCurrent,
-                512, SectorBuffer
+                BlockIO->WriteBlocks,
+                BlockIO,
+                BlockIO->Media->MediaId,
+                ExtCurrent,
+                512,
+                SectorBuffer
             );
-            if (EFI_ERROR(Status)) {
+
+            if (EFI_ERROR (Status)) {
                 return Status;
             }
 
             if (PartitionIndex < LogicalPartitionIndex) {
-                // Stop the loop ... Ignore other EMBRs
-                break;
+                break;  // stop the loop, no need to touch further EMBRs
             }
         } // for
     } // if PartitionIndex
@@ -308,57 +295,63 @@ EFI_STATUS ActivateMbrPartition (
 
 static
 EFI_STATUS WriteBootDiskHint (
-    IN EFI_DEVICE_PATH_PROTOCOL *WholeDiskDevicePath
+    IN EFI_DEVICE_PATH *WholeDiskDevicePath
 ){
    EFI_STATUS Status;
 
    Status = EfivarSetRaw (
-       &AppleVariableVendorID, L"BootCampHD",
-       WholeDiskDevicePath, GetDevicePathSize (WholeDiskDevicePath), TRUE
+       &AppleVariableVendorID,
+       L"BootCampHD",
+       WholeDiskDevicePath,
+       GetDevicePathSize (WholeDiskDevicePath),
+       TRUE
    );
 
-   return Status;
+   if (EFI_ERROR (Status)) {
+       return Status;
+   }
+
+   return EFI_SUCCESS;
 } // EFI_STATUS WriteBootDiskHint
+
+//
+// firmware device path discovery
+//
 
 static
 VOID ExtractLegacyLoaderPaths (
-    EFI_DEVICE_PATH_PROTOCOL **PathList,
-    UINTN                      MaxPaths,
-    EFI_DEVICE_PATH_PROTOCOL **HardcodedPathList
+    EFI_DEVICE_PATH **PathList,
+    UINTN             MaxPaths,
+    EFI_DEVICE_PATH **HardcodedPathList
 ) {
-    EFI_STATUS                            Status;
-    UINTN                                 PathIndex;
-    UINTN                                 PathCount;
-    UINTN                                 HandleCount;
-    UINTN                                 HandleIndex;
-    UINTN                                 HardcodedIndex;
-    BOOLEAN                               Seen;
-    EFI_HANDLE                           *Handles;
-    EFI_HANDLE                            Handle;
-    EFI_DEVICE_PATH_PROTOCOL             *DevicePath;
-    EFI_LOADED_IMAGE_PROTOCOL            *LoadedImage;
-
+    EFI_STATUS          Status;
+    UINTN               PathIndex;
+    UINTN               PathCount   = 0;
+    UINTN               HandleCount = 0;
+    UINTN               HandleIndex;
+    UINTN               HardcodedIndex;
+    BOOLEAN             Seen;
+    EFI_HANDLE         *Handles;
+    EFI_HANDLE          Handle;
+    EFI_DEVICE_PATH    *DevicePath;
+    EFI_LOADED_IMAGE   *LoadedImage;
 
     MaxPaths--;  // leave space for the terminating NULL pointer
 
-    // Get all LoadedImage handles
-    PathCount = HandleCount = 0;
+    // get all LoadedImage handles
     Status = LibLocateHandle (
         ByProtocol,
         &LoadedImageProtocol, NULL,
         &HandleCount, &Handles
     );
-    if (EFI_ERROR(Status)) {
-        CheckError (Status, L"While Listing LoadedImage Handles");
 
-        if (HardcodedPathList != NULL) {
-            for (HardcodedIndex = 0;
-                HardcodedPathList[HardcodedIndex] && PathCount < MaxPaths;
-                HardcodedIndex++
-            ) {
+    if (CheckError (Status, L"while listing LoadedImage handles")) {
+        if (HardcodedPathList) {
+            for (HardcodedIndex = 0; HardcodedPathList[HardcodedIndex] && PathCount < MaxPaths; HardcodedIndex++) {
                 PathList[PathCount++] = HardcodedPathList[HardcodedIndex];
             }
         }
+
         PathList[PathCount] = NULL;
 
         return;
@@ -368,32 +361,38 @@ VOID ExtractLegacyLoaderPaths (
         Handle = Handles[HandleIndex];
 
         Status = REFIT_CALL_3_WRAPPER(
-            gBS->HandleProtocol, Handle,
-            &LoadedImageProtocol, (VOID **) &LoadedImage
+            gBS->HandleProtocol,
+            Handle,
+            &LoadedImageProtocol,
+            (VOID **) &LoadedImage
         );
-        if (EFI_ERROR(Status)) {
-            // Ignore Error ... Can only happen via firmware defect.
+
+        if (EFI_ERROR (Status)) {
+            // This can only happen if the firmware scewed up ... ignore it.
             continue;
         }
 
         Status = REFIT_CALL_3_WRAPPER(
-            gBS->HandleProtocol, LoadedImage->DeviceHandle,
-            &DevicePathProtocol, (VOID **) &DevicePath
+            gBS->HandleProtocol,
+            LoadedImage->DeviceHandle,
+            &DevicePathProtocol,
+            (VOID **) &DevicePath
         );
-        if (EFI_ERROR(Status)) {
-            // Ignore Error ... Not significant.
+
+        if (EFI_ERROR (Status)) {
+            // This happens ... ignore it.
             continue;
         }
 
         // Only grab memory range nodes
-        if (DevicePathSubType (DevicePath) != HW_MEMMAP_DP      ||
-            DevicePathType (DevicePath)    != HARDWARE_DEVICE_PATH
+        if (DevicePathType (DevicePath) != HARDWARE_DEVICE_PATH ||
+            DevicePathSubType (DevicePath) != HW_MEMMAP_DP
         ) {
             continue;
         }
 
         // Check if we have this device path in the list already
-        // WARNING: Assumes first node in the device path is unique!
+        // WARNING: This assumes the first node in the device path is unique!
         Seen = FALSE;
         for (PathIndex = 0; PathIndex < PathCount; PathIndex++) {
             if (DevicePathNodeLength (DevicePath) != DevicePathNodeLength (PathList[PathIndex])) {
@@ -416,1225 +415,785 @@ VOID ExtractLegacyLoaderPaths (
 
         PathList[PathCount++] = AppendDevicePath (DevicePath, LegacyLoaderMediaPath);
     }
-    MY_FREE_POOL(Handles);
+    MyFreePool (&Handles);
 
-    if (HardcodedPathList != NULL) {
+    if (HardcodedPathList) {
         for (HardcodedIndex = 0; HardcodedPathList[HardcodedIndex] && PathCount < MaxPaths; HardcodedIndex++) {
             PathList[PathCount++] = HardcodedPathList[HardcodedIndex];
         }
     }
 
     PathList[PathCount] = NULL;
-} // static VOID ExtractLegacyLoaderPaths()
+} // VOID ExtractLegacyLoaderPaths()
 
 // Launch a BIOS boot loader (Mac mode)
 static
 EFI_STATUS StartLegacyImageList (
-    IN     EFI_DEVICE_PATH_PROTOCOL **DevicePaths,
-    IN     CHAR16                    *LoadOptions,
-    IN OUT UINTN                     *ErrorInStep
+    IN  EFI_DEVICE_PATH **DevicePaths,
+    IN  CHAR16           *LoadOptions,
+    OUT UINTN            *ErrorInStep
 ) {
-    EFI_STATUS                        Status;
-    EFI_HANDLE                        ChildImageHandle;
-    EFI_LOADED_IMAGE_PROTOCOL        *ChildLoadedImage;
-    UINTN                             DevicePathIndex;
+    EFI_STATUS               Status, ReturnStatus;
+    EFI_HANDLE               ChildImageHandle;
+    EFI_LOADED_IMAGE        *ChildLoadedImage = NULL;
+    UINTN                    DevicePathIndex;
+    CHAR16                  *FullLoadOptions = NULL;
 
+    if (ErrorInStep != NULL) {
+        *ErrorInStep = 0;
+    }
 
-    // Default in case the DevicePath list is empty
-    Status = EFI_LOAD_ERROR;
+    // set load options
+    if (LoadOptions != NULL) {
+        FullLoadOptions = StrDuplicate (LoadOptions);
+    }
 
-    // Load the image into memory
+    Print (
+        L"Starting Mac-Style Legacy (BIOS) Loader\nUsing load options:- '%s'\n",
+        FullLoadOptions ? FullLoadOptions : L""
+    );
+
+    // load the image into memory
+    ReturnStatus = Status = EFI_LOAD_ERROR;  // in case the list is empty
     for (DevicePathIndex = 0; DevicePaths[DevicePathIndex] != NULL; DevicePathIndex++) {
         Status = REFIT_CALL_6_WRAPPER(
-            gBS->LoadImage, FALSE,
-            SelfImageHandle, DevicePaths[DevicePathIndex],
-            NULL, 0, &ChildImageHandle
+            gBS->LoadImage,
+            FALSE,
+            SelfImageHandle,
+            DevicePaths[DevicePathIndex],
+            NULL,
+            0,
+            &ChildImageHandle
         );
-        if (Status != EFI_NOT_FOUND) {
+        ReturnStatus = Status;
+
+        if (ReturnStatus != EFI_NOT_FOUND) {
             break;
         }
     } // for
 
-    if (EFI_ERROR(Status)) {
-        CheckError (Status, L"While Loading Legacy Bootcode");
-        *ErrorInStep = 1;
+    if (CheckError (Status, L"while loading legacy loader")) {
+        if (ErrorInStep != NULL) {
+            *ErrorInStep = 1;
+        }
 
-        return Status;
+        goto bailout;
     }
 
-    ChildLoadedImage = NULL;
     Status = REFIT_CALL_3_WRAPPER(
-        gBS->HandleProtocol, ChildImageHandle,
-        &LoadedImageProtocol, (VOID **) &ChildLoadedImage
+        gBS->HandleProtocol,
+        ChildImageHandle,
+        &LoadedImageProtocol,
+        (VOID **) &ChildLoadedImage
     );
-    if (EFI_ERROR(Status)) {
-        CheckError (
-            Status,
-            L"While Fetching 'Child' LoadedImageProtocol Handle"
-        );
-        *ErrorInStep = 2;
 
+    ReturnStatus = Status;
+    if (CheckError (Status, L"while getting a LoadedImageProtocol handle")) {
+        if (ErrorInStep != NULL) {
+            *ErrorInStep = 2;
+        }
         goto bailout_unload;
     }
 
-    ChildLoadedImage->LoadOptions     = (VOID *) LoadOptions;
-    ChildLoadedImage->LoadOptionsSize = (LoadOptions != NULL)
-        ? ((UINT32) StrLen (LoadOptions) + 1) * sizeof (CHAR16) : 0;
+    ChildLoadedImage->LoadOptions = (VOID *)FullLoadOptions;
+    ChildLoadedImage->LoadOptionsSize = FullLoadOptions
+        ? ((UINT32)StrLen (FullLoadOptions) + 1) * sizeof (CHAR16)
+        : 0;
+    // turn control over to the image
+    // TODO: (optionally) re-enable the EFI watchdog timer!
 
-    // Turn control over to child image
-    // DA-TAG: (optionally) re-enable the EFI watchdog timer!
+    // close open file handles
+    #if REFIT_DEBUG > 0
+    LOG(1, LOG_LINE_NORMAL, L"Launching Mac-style Legacy (BIOS) Loader");
+    #endif
 
-    // Close open file handles
     UninitRefitLib();
 
-    #if REFIT_DEBUG > 0
-    OUT_TAG();
-    #endif
     Status = REFIT_CALL_3_WRAPPER(
-        gBS->StartImage, ChildImageHandle,
+        gBS->StartImage,
+        ChildImageHandle,
         NULL, NULL
     );
-    if (EFI_ERROR(Status)) {
-        CheckError (Status, L"Unexpected Return from Loader");
-        *ErrorInStep = 3;
+    ReturnStatus = Status;
+
+    // control returns here when the child image calls Exit()
+    if (CheckError (Status, L"returned from legacy loader")) {
+        #if REFIT_DEBUG > 0
+        LOG(1, LOG_LINE_NORMAL, L"returned from legacy loader");
+        #endif
+
+        if (ErrorInStep != NULL) {
+            *ErrorInStep = 3;
+        }
     }
 
-    // Control returned after error or 'Exit()' call by child image
-    #if REFIT_DEBUG > 0
-    RET_TAG();
-    #endif
-
-    // Re-open file handles
+    // re-open file handles
     ReinitRefitLib();
 
 bailout_unload:
-    // Unload the child image ... We do not care if it works or not
+    // unload the image, we do not care if it works or not...
     REFIT_CALL_1_WRAPPER(gBS->UnloadImage, ChildImageHandle);
 
-    return Status;
-} // static EFI_STATUS StartLegacyImageList()
+bailout:
+    MyFreePool (&FullLoadOptions);
 
-static
-EG_IMAGE * LegacyHelper (
+    return ReturnStatus;
+} // EFI_STATUS StartLegacyImageList()
+
+VOID StartLegacy (
     IN LEGACY_ENTRY *Entry,
-    IN CHAR16       *SelectionName,
-    IN BOOLEAN       TypeMac
+    IN CHAR16 *SelectionName
 ) {
-    CHAR16          *MsgStrA;
-    EG_IMAGE        *BootLogoImage; // Must be freed by Caller
+    EFI_STATUS       Status;
+    EG_IMAGE        *BootLogoImage;
+    UINTN            ErrorInStep = 0;
+    EFI_DEVICE_PATH *DiscoveredPathList[MAX_DISCOVERED_PATHS];
 
+    CHAR16 *MsgStrA = NULL;
+    CHAR16 *MsgStrB = NULL;
 
-    LOG_SEP(L"X");
-    LOG_INCREMENT();
-    BREAD_CRUMB(L"%a:  1 - START", __func__);
-    if (TypeMac) {
-        MsgStrA = L"Load Legacy Bootcode:- 'Mac-Style'";
-    }
-    else {
-        MsgStrA = L"Load Legacy Bootcode:- 'UEFI-Style'";
-    }
-    BeginExternalScreen (TRUE, MsgStrA);
+    IsBoot = TRUE;
 
-    BREAD_CRUMB(L"%a:  2", __func__);
-    if ((MyStrStr (Entry->Volume->OSName, L"Windows") && !(GlobalConfig.DisableBootLogo & DISABLE_BOOTLOGO_WIN)) ||
-        (MyStrStr (Entry->Volume->OSName, L"Linux"  ) && !(GlobalConfig.DisableBootLogo & DISABLE_BOOTLOGO_LIN))
-    ) {
-        BREAD_CRUMB(L"%a:  2a 1", __func__);
-        BootLogoImage = LoadOSIcon (NULL, EXIT_SPLASH, TRUE);
+    #if REFIT_DEBUG > 0
+    LOG(1, LOG_LINE_NORMAL,
+        L"Starting 'Mac-style' Legacy (BIOS) OS:- '%s'",
+        SelectionName
+    );
+    #endif
 
-        BREAD_CRUMB(L"%a:  2a 2", __func__);
-        if (BootLogoImage == NULL) {
-            BREAD_CRUMB(L"%a:  2a 2a 1", __func__);
-            BootLogoImage = LoadOSIcon (
-                Entry->Volume->OSIconName,
-                L"legacy", TRUE
-            );
-            BREAD_CRUMB(L"%a:  2a 2a 2", __func__);
-        }
-        BREAD_CRUMB(L"%a:  2a 3", __func__);
-    }
-    else {
-        BREAD_CRUMB(L"%a:  2b 1", __func__);
-        BootLogoImage = NULL;
-    }
+    BeginExternalScreen (TRUE, L"Booting 'Mac-style' Legacy (BIOS) OS");
 
-    BREAD_CRUMB(L"%a:  3", __func__);
+    BootLogoImage = LoadOSIcon (Entry->Volume->OSIconName, L"legacy", TRUE);
     if (BootLogoImage != NULL) {
-        BREAD_CRUMB(L"%a:  3a 1", __func__);
         BltImageAlpha (
             BootLogoImage,
             (ScreenW - BootLogoImage->Width ) >> 1,
             (ScreenH - BootLogoImage->Height) >> 1,
-            &(GlobalConfig.ScreenBackground->PixelData[0])
+            &StdBackgroundPixel
         );
-
-        BREAD_CRUMB(L"%a:  3a 2", __func__);
-        // Avoid mere flash
-        //
-        // Wait 0.75 seconds
-        // DA-TAG: 100 Loops == 1 Sec
-        RefitStall (75);
     }
 
-    BREAD_CRUMB(L"%a:  4", __func__);
-    if (IsBoot) {
-        BREAD_CRUMB(L"%a:  4a 1", __func__);
-        StoreLoaderName (SelectionName);
-    }
-
-    #if REFIT_DEBUG > 0
-    ALT_LOG(1, LOG_LINE_NORMAL,
-        L"%s for '%s'",
-        MsgStrA, SelectionName
-    );
-    #endif
-
-    BREAD_CRUMB(L"%a:  5 - END:- VOID", __func__);
-    LOG_DECREMENT();
-    LOG_SEP(L"X");
-
-    return BootLogoImage; // Must be freed by Caller
-} // static EG_IMAGE * LegacyHelper()
-
-VOID StartLegacy (
-    IN LEGACY_ENTRY *Entry,
-    IN CHAR16       *SelectionName
-) {
-    EFI_STATUS                Status;
-    UINTN                     ErrorInStep;
-    CHAR16                   *MsgStrA;
-    EG_IMAGE                 *BootLogoImage;
-    EFI_DEVICE_PATH_PROTOCOL *DiscoveredPathList[MAX_DISCOVERED_PATHS];
-
-
-    LOG_SEP(L"X");
-    LOG_INCREMENT();
-    BREAD_CRUMB(L"%a:  1 - START", __func__);
-    IsBoot = TRUE;
-
-    BREAD_CRUMB(L"%a:  2", __func__);
-    BootLogoImage = LegacyHelper (Entry, SelectionName, TRUE);
-
-    BREAD_CRUMB(L"%a:  3", __func__);
     if (Entry->Volume->IsMbrPartition) {
-        BREAD_CRUMB(L"%a:  3a 1", __func__);
         ActivateMbrPartition (
             Entry->Volume->WholeDiskBlockIO,
             Entry->Volume->MbrPartitionIndex
         );
-        BREAD_CRUMB(L"%a:  3a 2", __func__);
     }
 
-    BREAD_CRUMB(L"%a:  4", __func__);
-    if (Entry->Volume->WholeDiskDevicePath != NULL &&
-        Entry->Volume->DiskKind != DISK_KIND_OPTICAL
+    if (Entry->Volume->DiskKind != DISK_KIND_OPTICAL &&
+        Entry->Volume->WholeDiskDevicePath != NULL
     ) {
-        BREAD_CRUMB(L"%a:  4a 1", __func__);
         WriteBootDiskHint (Entry->Volume->WholeDiskDevicePath);
-        BREAD_CRUMB(L"%a:  4a 2", __func__);
     }
 
-    BREAD_CRUMB(L"%a:  5", __func__);
     ExtractLegacyLoaderPaths (
         DiscoveredPathList,
         MAX_DISCOVERED_PATHS,
         LegacyLoaderList
     );
 
-    BREAD_CRUMB(L"%a:  6", __func__);
-    ErrorInStep = 0;
-    MY_FREE_IMAGE(BootLogoImage);
+    StoreLoaderName (SelectionName);
     Status = StartLegacyImageList (
         DiscoveredPathList,
         Entry->LoadOptions,
         &ErrorInStep
     );
 
-    BREAD_CRUMB(L"%a:  7", __func__);
     if (Status == EFI_NOT_FOUND) {
-        BREAD_CRUMB(L"%a:  7a 1", __func__);
         if (ErrorInStep == 1) {
-            BREAD_CRUMB(L"%a:  7a 1a 1", __func__);
             SwitchToText (FALSE);
 
-            BREAD_CRUMB(L"%a:  7a 1a 2", __func__);
-            MsgStrA = L"Ensure Latest Firmware Updates Are Installed";
+            MsgStrA = L"Please make sure you have the latest firmware update installed";
             REFIT_CALL_2_WRAPPER(gST->ConOut->SetAttribute, gST->ConOut, ATTR_ERROR);
             PrintUglyText (MsgStrA, NEXTLINE);
             REFIT_CALL_2_WRAPPER(gST->ConOut->SetAttribute, gST->ConOut, ATTR_BASIC);
-            BREAD_CRUMB(L"%a:  7a 1a 3", __func__);
 
             #if REFIT_DEBUG > 0
-            LOG_MSG("** WARN: %s", MsgStrA);
-            LOG_MSG("\n\n");
+            MsgLog ("** WARN: %s\n\n", MsgStrA);
             #endif
 
-            BREAD_CRUMB(L"%a:  7a 1a 4", __func__);
             PauseForKey();
-            BREAD_CRUMB(L"%a:  7a 1a 5", __func__);
             SwitchToGraphics();
+            MyFreePool (&MsgStrA);
         }
         else if (ErrorInStep == 3) {
-            BREAD_CRUMB(L"%a:  7a 1b 1", __func__);
             SwitchToText (FALSE);
 
-            BREAD_CRUMB(L"%a:  7a 1b 2", __func__);
-            MsgStrA = L"Firmware Refused to Boot from Selected Volume";
+            MsgStrA = L"The firmware refused to boot from the selected volume";
             REFIT_CALL_2_WRAPPER(gST->ConOut->SetAttribute, gST->ConOut, ATTR_ERROR);
             PrintUglyText (MsgStrA, NEXTLINE);
             REFIT_CALL_2_WRAPPER(gST->ConOut->SetAttribute, gST->ConOut, ATTR_BASIC);
 
             #if REFIT_DEBUG > 0
-            LOG_MSG("** WARN: %s", MsgStrA);
+            MsgLog ("** WARN: %s\n", MsgStrA);
             #endif
 
-            if (AppleFirmware) {
-                #if REFIT_DEBUG > 0
-                LOG_MSG("\n");
-                #endif
-                BREAD_CRUMB(L"%a:  7a 1b 2a 1", __func__);
-                MsgStrA = L"Legacy Boot from External Drive *IS NOT* Well Supported by Apple Firmware";
-                PrintUglyText (MsgStrA, NEXTLINE);
-                #if REFIT_DEBUG > 0
-                LOG_MSG("         %s", MsgStrA);
-                #endif
-            }
+            MsgStrB = L"NB: External drives are not well-supported by Apple firmware for legacy booting";
+            REFIT_CALL_2_WRAPPER(gST->ConOut->SetAttribute, gST->ConOut, ATTR_ERROR);
+            PrintUglyText (MsgStrB, NEXTLINE);
+            REFIT_CALL_2_WRAPPER(gST->ConOut->SetAttribute, gST->ConOut, ATTR_BASIC);
 
             #if REFIT_DEBUG > 0
-            LOG_MSG("\n\n");
+            MsgLog ("         %s\n\n", MsgStrB);
             #endif
 
-            BREAD_CRUMB(L"%a:  7a 1b 3", __func__);
             PauseForKey();
-
-            BREAD_CRUMB(L"%a:  7a 1b 4", __func__);
             SwitchToGraphics();
         } // if/else ErrorInStep
     } // if Status == EFI_NOT_FOUND
 
-    BREAD_CRUMB(L"%a:  8", __func__);
     FinishExternalScreen();
-
-    BREAD_CRUMB(L"%a:  9 - END:- VOID", __func__);
-    LOG_DECREMENT();
-    LOG_SEP(L"X");
-} // VOID StartLegacy()
+} // static VOID StartLegacy()
 
 // Start a device on a non-Mac using the EFI_LEGACY_BIOS_PROTOCOL
 VOID StartLegacyUEFI (
     LEGACY_ENTRY *Entry,
     CHAR16       *SelectionName
 ) {
-    CHAR16       *MsgStrA;
-    EG_IMAGE     *BootLogoImage;
-
+    #if REFIT_DEBUG > 0
+    LOG(1, LOG_LINE_NORMAL,
+        L"Launching 'UEFI-style' Legacy (BIOS) OS:- '%s'",
+        SelectionName
+    );
+    #endif
 
     IsBoot = TRUE;
-    BootLogoImage = LegacyHelper (Entry, SelectionName, FALSE);
+
+    BeginExternalScreen (TRUE, L"Booting 'UEFI-style' Legacy (BIOS) OS");
+    StoreLoaderName (SelectionName);
 
     UninitRefitLib();
     BdsLibConnectDevicePath (Entry->BdsOption->DevicePath);
-    MY_FREE_IMAGE(BootLogoImage);
     BdsLibDoLegacyBoot (Entry->BdsOption);
 
     // There was a failure if we get here.
-    #if REFIT_DEBUG > 0
-    RET_TAG();
-    #endif
     ReinitRefitLib();
 
-    MsgStrA = L"Failure on Loading 'UEFI-Style' Legacy Bootcode";
-
     #if REFIT_DEBUG > 0
-    ALT_LOG(1, LOG_LINE_NORMAL, L"%s", MsgStrA);
+    LOG(1, LOG_LINE_NORMAL, L"Failure booting Legacy (BIOS) OS");
     #endif
 
-    Print(L"%s", MsgStrA);
+    Print(L"Failure booting Legacy (BIOS) OS");
     PauseForKey();
-
     FinishExternalScreen();
 } // static VOID StartLegacyUEFI()
 
 static
-VOID AddLegacyEntry (
-    IN CHAR16         *LoaderTitle,
-    IN REFIT_VOLUME   *Volume
+LEGACY_ENTRY * AddLegacyEntry (
+    IN CHAR16       *LoaderTitle,
+    IN REFIT_VOLUME *Volume
 ) {
-    LEGACY_ENTRY      *Entry;
-    LEGACY_ENTRY      *SubEntry;
-    REFIT_MENU_SCREEN *SubScreen;
-    CHAR16            *LegacyTitle;
-    CHAR16            *VolDesc;
-    BOOLEAN            TempBool;
-
+          LEGACY_ENTRY      *Entry;
+          LEGACY_ENTRY      *SubEntry;
+          REFIT_MENU_SCREEN *SubScreen;
+    const CHAR16            *VolDesc = NULL;
+          CHAR16            *LegacyTitle;
+          CHAR16             ShortcutLetter = 0;
 
     if (LoaderTitle == NULL) {
-        LoaderTitle = (Volume->OSName != NULL)
-            ? Volume->OSName : L"Legacy Bootcode";
+        if (Volume->OSName != NULL) {
+            LoaderTitle = Volume->OSName;
+            if (LoaderTitle[0] == 'W' || LoaderTitle[0] == 'L') {
+                ShortcutLetter = LoaderTitle[0];
+            }
+        }
+        else {
+            LoaderTitle = L"Legacy (BIOS) OS";
+        }
     }
 
-    VolDesc = (Volume->VolName != NULL)
-        ? Volume->VolName
-        : (Volume->DiskKind == DISK_KIND_OPTICAL)
-            ? L"CD" : L"HD";
-
-    LegacyTitle = PoolPrint (
-        L"Load %s%s%s%s%s",
-        LoaderTitle,
-        SetVolJoin (LoaderTitle, TRUE                   ),
-        SetVolKind (LoaderTitle, VolDesc, Volume->FSType),
-        SetVolFlag (LoaderTitle, VolDesc                ),
-        SetVolType (LoaderTitle, VolDesc, Volume->FSType)
-    );
-
-    TempBool = IsListItemSubstringIn (
-        LegacyTitle, GlobalConfig.DontScanVolumes
-    );
-    if (TempBool) {
-       MY_FREE_POOL(LegacyTitle);
-
-       // Early Return
-       return;
+    if (Volume->VolName != NULL) {
+        if (MyStrStr (Volume->VolName, L"NTFS volume") != NULL) {
+            VolDesc = L"NTFS Volume";
+        }
+        else {
+            VolDesc = Volume->VolName;
+        }
     }
+    else {
+        VolDesc = (Volume->DiskKind == DISK_KIND_OPTICAL) ? L"CD" : L"HD";
+    }
+
+    LegacyTitle = PoolPrint (L"Boot %s from %s", LoaderTitle, VolDesc);
+
+    if (IsInSubstring (LegacyTitle, GlobalConfig.DontScanVolumes)) {
+       MyFreePool (&LegacyTitle);
+
+       return NULL;
+    }
+
+    #if REFIT_DEBUG > 0
+    UINTN LogLineType;
+
+    if (FirstLegacyScan) {
+        LogLineType = LOG_THREE_STAR_MID;
+    }
+    else {
+        LogLineType = LOG_THREE_STAR_SEP;
+    }
+
+    LOG(1, LogLineType,
+        L"Adding Legacy (BIOS) Entry for '%s'",
+        LegacyTitle
+    );
+    #endif
 
     FirstLegacyScan = FALSE;
 
-    // Prepare the menu entry
+    // prepare the menu entry
     Entry = AllocateZeroPool (sizeof (LEGACY_ENTRY));
-    if (Entry == NULL) {
-        MY_FREE_POOL(LegacyTitle);
-
-        // Early Return
-        return;
-    }
-
-    SetVolumeBadgeIcon (Volume);
-
-    Entry->me.Row         = 0;
-    Entry->Enabled        = TRUE;
-    Entry->me.Tag         = TAG_LEGACY;
-    Entry->me.Title       = LegacyTitle;
-    Entry->me.SubScreen   = NULL; // Initial Setting
-    Entry->me.ShortcutKey = 0;
-    Entry->me.Image       = LoadOSIcon (Volume->OSIconName, L"legacy", FALSE);
-    Entry->Volume         = CopyVolume (Volume);
-    Entry->me.BadgeImage  = egCopyImage (Volume->VolBadgeImage);
-    Entry->LoadOptions    = (  Volume->DiskKind != DISK_KIND_OPTICAL)
-                            ? (Volume->DiskKind == DISK_KIND_EXTERNAL)
-                                ? L"USB" : L"HD"
-                            : L"CD";
+    Entry->Enabled           = TRUE;
+    Entry->me.Title          = LegacyTitle;
+    Entry->me.Tag            = TAG_LEGACY;
+    Entry->me.Row            = 0;
+    Entry->me.ShortcutLetter = ShortcutLetter;
+    Entry->me.Image          = LoadOSIcon (Volume->OSIconName, L"legacy", FALSE);
+    Entry->me.BadgeImage     = Volume->VolBadgeImage;
+    Entry->Volume            = Volume;
+    Entry->LoadOptions       = (Volume->DiskKind == DISK_KIND_OPTICAL)
+                               ? L"CD"
+                               : ((Volume->DiskKind == DISK_KIND_EXTERNAL) ? L"USB" : L"HD");
 
     #if REFIT_DEBUG > 0
-    LOG_MSG(
-        "%s  - Found %s%s%s%s%s",
-        OffsetNext,
-        LoaderTitle,
-        SetVolJoin (LoaderTitle, FALSE                  ),
-        SetVolKind (LoaderTitle, VolDesc, Volume->FSType),
-        SetVolFlag (LoaderTitle, VolDesc                ),
-        SetVolType (LoaderTitle, VolDesc, Volume->FSType)
-    );
+    MsgLog ("\n");
+    MsgLog ("  - Found '%s' on '%s'", LoaderTitle, VolDesc);
     #endif
 
-    // Create the submenu
+    // create the submenu
     SubScreen = AllocateZeroPool (sizeof (REFIT_MENU_SCREEN));
-    if (SubScreen == NULL) {
-        FreeMenuEntry ((REFIT_MENU_ENTRY **) Entry);
-
-        // Early Return
-        return;
-    }
-
-    SubScreen->TitleImage = egCopyImage (Entry->me.Image);
     SubScreen->Title = PoolPrint (
-        L"Boot Options for %s%s%s%s%s",
-        LoaderTitle,
-        SetVolJoin (LoaderTitle, TRUE                   ),
-        SetVolKind (LoaderTitle, VolDesc, Volume->FSType),
-        SetVolFlag (LoaderTitle, VolDesc                ),
-        SetVolType (LoaderTitle, VolDesc, Volume->FSType)
-    );
+        L"Boot Options for %s on %s",
+        LoaderTitle, VolDesc
+     );
 
-    SubScreen->Hint1 = StrDuplicate (SUBSCREEN_HINT1);
-    SubScreen->Hint2 = (GlobalConfig.HideUIFlags & HIDEUI_FLAG_EDITOR)
-        ? StrDuplicate (SUBSCREEN_HINT2_NO_EDITOR)
-        : StrDuplicate (SUBSCREEN_HINT2);
+    SubScreen->TitleImage = Entry->me.Image;
+    SubScreen->Hint1      = StrDuplicate (SUBSCREEN_HINT1);
 
-    // Default entry
-    SubEntry = AllocateZeroPool (sizeof (LEGACY_ENTRY));
-    if (SubEntry == NULL) {
-        FreeMenuScreen (&SubScreen);
-        FreeMenuEntry ((REFIT_MENU_ENTRY **) Entry);
-
-        // Early Return
-        return;
-    }
-
-    SubEntry->me.Title    = PoolPrint (L"Load %s", LoaderTitle);
-    SubEntry->me.Tag      = TAG_LEGACY;
-    SubEntry->Volume      = CopyVolume (Entry->Volume);
-    SubEntry->LoadOptions = StrDuplicate (Entry->LoadOptions);
-
-    AddMenuEntry (SubScreen, (REFIT_MENU_ENTRY *) SubEntry);
-
-    TempBool = GetMenuEntryReturn (&SubScreen);
-    if (TempBool) {
-        Entry->me.SubScreen = SubScreen;
+    if (GlobalConfig.HideUIFlags & HIDEUI_FLAG_EDITOR) {
+       SubScreen->Hint2 = StrDuplicate (SUBSCREEN_HINT2_NO_EDITOR);
     }
     else {
-        FreeMenuScreen (&SubScreen);
+       SubScreen->Hint2 = StrDuplicate (SUBSCREEN_HINT2);
     }
 
-    AddMenuEntry (MainMenu, (REFIT_MENU_ENTRY *) Entry);
+    // default entry
+    SubEntry = AllocateZeroPool (sizeof (LEGACY_ENTRY));
+    SubEntry->me.Title    = PoolPrint (L"Boot %s", LoaderTitle);
+    SubEntry->me.Tag      = TAG_LEGACY;
+    SubEntry->Volume      = Entry->Volume;
+    SubEntry->LoadOptions = Entry->LoadOptions;
 
-    #if REFIT_DEBUG > 0
-    ALT_LOG(1, LOG_THREE_STAR_END,
-        L"Successfully Created Menu Entry for %s",
-        LoaderTitle
-    );
-    #endif
-} // static VOID AddLegacyEntry()
+    AddMenuEntry (SubScreen, (REFIT_MENU_ENTRY *) SubEntry);
+    AddMenuEntry (SubScreen, &MenuEntryReturn);
+
+    Entry->me.SubScreen = SubScreen;
+    AddMenuEntry (&MainMenu, (REFIT_MENU_ENTRY *) Entry);
+
+    return Entry;
+} // static LEGACY_ENTRY * AddLegacyEntry()
 
 
 /**
     Create a RefindPlus boot option from a Legacy BIOS protocol option.
 */
 static
-VOID AddLegacyEntryUEFI (
+LEGACY_ENTRY * AddLegacyEntryUEFI (
     BDS_COMMON_OPTION *BdsOption,
-    IN UINT8           DiskType
+    IN UINT16          DiskType
 ) {
     LEGACY_ENTRY      *Entry;
     LEGACY_ENTRY      *SubEntry;
     REFIT_MENU_SCREEN *SubScreen;
+    CHAR16             ShortcutLetter    = 0;
+    CHAR16            *LegacyDescription = StrDuplicate (BdsOption->Description);
 
+    if (IsInSubstring (LegacyDescription, GlobalConfig.DontScanVolumes)) {
+        MyFreePool (&LegacyDescription);
 
-    if (IsListItemSubstringIn (
-            BdsOption->Description,
-            GlobalConfig.DontScanVolumes
-        )
-    ) {
-        // Early Return
-        return;
+        return NULL;
     }
 
     // Remove stray spaces, since many EFIs produce descriptions with lots of
     //   extra spaces, especially at the end; this throws off centering of the
     //   description on the screen.
-    LimitStringLength (BdsOption->Description, 100);
+    LimitStringLength (LegacyDescription, 100);
 
-    // Prepare the menu entry
+    // prepare the menu entry
     Entry = AllocateZeroPool (sizeof (LEGACY_ENTRY));
-    if (Entry == NULL) {
-        // Early Return
-        return;
-    }
-
-    Entry->me.Title = PoolPrint (
-        L"Load Legacy Bootcode%s%s%s%s",
-        SetVolJoin (L"Legacy Bootcode", TRUE                     ),
-        SetVolKind (L"Legacy Bootcode", BdsOption->Description, 0),
-        SetVolFlag (L"Legacy Bootcode", BdsOption->Description   ),
-        SetVolType (L"Legacy Bootcode", BdsOption->Description, 0)
-    );
+    Entry->me.Title = PoolPrint (L"Boot Legacy (BIOS) OS from %s", LegacyDescription);
 
     #if REFIT_DEBUG > 0
-    ALT_LOG(1, LOG_THREE_STAR_MID,
-        L"Append 'UEFI-Style' Legacy Entry for '%s'",
+    LOG(1, LOG_THREE_STAR_MID,
+        L"Adding UEFI-style Legacy (BIOS) Entry for '%s'",
         Entry->me.Title
     );
     #endif
 
-    Entry->me.Row         = 0;
-    Entry->me.Tag         = TAG_LEGACY_UEFI;
-    Entry->me.SubScreen   = NULL; // Initial Setting
-    Entry->me.ShortcutKey = 0;
-    if (GlobalConfig.HelpIcon) {
-        Entry->me.Image = egFindIcon (
-            L"os_legacy",
-            GlobalConfig.IconSizes[ICON_SIZE_BIG]
-        );
-    }
-    if (Entry->me.Image == NULL) {
-        Entry->me.Image  = LoadOSIcon (
-            L"legacy", L"legacy", FALSE
-        );
-    }
-    Entry->LoadOptions   = (DiskType == BBS_CDROM)
-                            ? L"CD"
-                            : ((DiskType == BBS_USB)
-                                ? L"USB" : L"HD");
-    Entry->me.BadgeImage = GetDiskBadge (DiskType);
-    Entry->BdsOption     = CopyBdsOption (BdsOption);
-    Entry->Enabled       = TRUE;
+    Entry->me.Tag            = TAG_LEGACY_UEFI;
+    Entry->me.Row            = 0;
+    Entry->me.ShortcutLetter = ShortcutLetter;
+    Entry->me.Image          = LoadOSIcon (L"legacy", L"legacy", TRUE);
+    Entry->LoadOptions       = (DiskType == BBS_CDROM)
+                                ? L"CD"
+                                : ((DiskType == BBS_USB)
+                                    ? L"USB" : L"HD");
+    Entry->me.BadgeImage     = GetDiskBadge (DiskType);
+    Entry->BdsOption         = CopyBdsOption (BdsOption);
+    Entry->Enabled           = TRUE;
 
-    // Create the submenu
+    // create the submenu
     SubScreen = AllocateZeroPool (sizeof (REFIT_MENU_SCREEN));
-    if (SubScreen == NULL) {
-        FreeMenuEntry ((REFIT_MENU_ENTRY **) Entry);
+    SubScreen->Title      = StrDuplicate (L"No boot options for legacy target");
+    SubScreen->TitleImage = Entry->me.Image;
+    SubScreen->Hint1      = StrDuplicate (SUBSCREEN_HINT1);
 
-        // Early Return
-        return;
+    if (GlobalConfig.HideUIFlags & HIDEUI_FLAG_EDITOR) {
+       SubScreen->Hint2 = StrDuplicate (SUBSCREEN_HINT2_NO_EDITOR);
+    }
+    else {
+       SubScreen->Hint2 = StrDuplicate (SUBSCREEN_HINT2);
     }
 
-    SubScreen->TitleImage = egCopyImage (Entry->me.Image);
-    SubScreen->Title = PoolPrint (
-        L"Boot Options for Legacy Bootcode%s%s%s%s",
-        SetVolJoin (L"Legacy Bootcode", TRUE                     ),
-        SetVolKind (L"Legacy Bootcode", BdsOption->Description, 0),
-        SetVolFlag (L"Legacy Bootcode", BdsOption->Description   ),
-        SetVolType (L"Legacy Bootcode", BdsOption->Description, 0)
-    );
-    SubScreen->Hint1 = StrDuplicate (SUBSCREEN_HINT1);
-    SubScreen->Hint2 = (GlobalConfig.HideUIFlags & HIDEUI_FLAG_EDITOR)
-        ? StrDuplicate (SUBSCREEN_HINT2_NO_EDITOR)
-        : StrDuplicate (SUBSCREEN_HINT2);
-
-    // Default entry
+    // default entry
     SubEntry = AllocateZeroPool (sizeof (LEGACY_ENTRY));
-    if (SubEntry == NULL) {
-        FreeMenuScreen (&SubScreen);
-        FreeMenuEntry ((REFIT_MENU_ENTRY **) Entry);
-
-        // Early Return
-        return;
-    }
-
-    SubEntry->me.Title  = PoolPrint (L"Load %s", BdsOption->Description);
+    SubEntry->me.Title = PoolPrint (L"Boot %s", LegacyDescription);
     SubEntry->me.Tag    = TAG_LEGACY_UEFI;
     SubEntry->BdsOption = CopyBdsOption (BdsOption);
 
     AddMenuEntry (SubScreen, (REFIT_MENU_ENTRY *) SubEntry);
 
-    if (!GetMenuEntryReturn (&SubScreen)) {
-        FreeMenuScreen (&SubScreen);
-    }
+    AddMenuEntry (SubScreen, &MenuEntryReturn);
     Entry->me.SubScreen = SubScreen;
-
-    AddMenuEntry (MainMenu, (REFIT_MENU_ENTRY *) Entry);
+    AddMenuEntry (&MainMenu, (REFIT_MENU_ENTRY *) Entry);
 
     #if REFIT_DEBUG > 0
-    ALT_LOG(1, LOG_THREE_STAR_END,
-        L"Successfully Created Menu Entry for Legacy Bootcode for %s",
-        BdsOption->Description
-    );
+    MsgLog ("\n");
+    MsgLog ("  - Found 'UEFI-Style Legacy (BIOS) OS' on '%s'", LegacyDescription);
     #endif
-} // static VOID AddLegacyEntryUEFI()
+
+    MyFreePool (&LegacyDescription);
+
+    return Entry;
+} // static LEGACY_ENTRY * AddLegacyEntryUEFI()
 
 /**
-    Scan for legacy BIOS targets on machines with EFI_LEGACY_BIOS_PROTOCOL.
-    Restricts output to disks of the specified 'DiskType'.
+    Scan for legacy BIOS targets on machines that implement EFI_LEGACY_BIOS_PROTOCOL.
+    In testing, protocol has not been implemented on Macs but has been implemented on
+      most UEFI PCs. Restricts output to disks of the specified DiskType.
 */
 static
 VOID ScanLegacyUEFI (
-    IN UINT8 DiskType
+    IN UINTN DiskType
 ) {
-    #if REFIT_DEBUG > 0
-    UINTN                      LogLineType;
-    #endif
-
     EFI_STATUS                 Status;
-    UINT16                    *BootOrder;
-    UINTN                      Index;
-    UINTN                      BootOrderSize;
+    UINT16                    *BootOrder       = NULL;
+    UINTN                      Index           = 0;
+    UINTN                      BootOrderSize   = 0;
     CHAR16                     Buffer[20];
     CHAR16                     BootOption[10];
-    BOOLEAN                    AssumeUSB;
+    BOOLEAN                    SearchingForUsb = FALSE;
     LIST_ENTRY                 TempList;
     BDS_COMMON_OPTION         *BdsOption;
-    BBS_BBS_DEVICE_PATH       *BbsDevicePath;
+    BBS_BBS_DEVICE_PATH       *BbsDevicePath   = NULL;
     EFI_LEGACY_BIOS_PROTOCOL  *LegacyBios;
 
-
-    LOG_SEP(L"X");
-    LOG_INCREMENT();
-    BREAD_CRUMB(L"%a:  A - START", __func__);
-
     #if REFIT_DEBUG > 0
-    LogLineType = (FirstLegacyScan)
-        ? LOG_STAR_HEAD_SEP
-        : LOG_LINE_THIN_SEP;
-
-    ALT_LOG(1, LogLineType, L"'UEFI-Style' Legacy Boot Options");
+    UINTN LogLineType;
+    if (FirstLegacyScan) {
+        LogLineType = LOG_THREE_STAR_MID;
+    }
+    else {
+        LogLineType = LOG_THREE_STAR_SEP;
+    }
+    LOG(1, LogLineType, L"Scanning for a UEFI-style Legacy (BIOS) OS");
     #endif
 
     FirstLegacyScan = FALSE;
 
     ZeroMem (Buffer, sizeof (Buffer));
 
-    // If LegacyBios protocol is not implemented on this platform,
-    // we do not support this type of legacy boot on this machine.
+    // If LegacyBios protocol is not implemented on this platform, then
+    //   we do not support this type of legacy boot on this machine.
     Status = REFIT_CALL_3_WRAPPER(
-        gBS->LocateProtocol, &gEfiLegacyBootProtocolGuid,
+        gBS->LocateProtocol,
+        &gEfiLegacyBootProtocolGuid,
         NULL, (VOID **) &LegacyBios
     );
-    if (EFI_ERROR(Status)) {
-        BREAD_CRUMB(L"%a:  Z - END:- VOID (LocateProtocol Error)", __func__);
-        LOG_DECREMENT();
-        LOG_SEP(L"X");
 
-        // Early Return
+    if (EFI_ERROR (Status)) {
         return;
     }
 
-    // UEFI calls USB drives "BBS_HARDDRIVE".
-    // To distinguish from normal hard drives,
-    // "DiskType" was set wrongly earlier and is "translated" here.
-    if (DiskType != BBS_USB) {
-        AssumeUSB = FALSE;
-    }
-    else {
-        AssumeUSB = TRUE;
-        DiskType  = BBS_HARDDISK;
+    // EFI calls USB drives BBS_HARDDRIVE, but we want to distinguish them,
+    //   so we set DiskType inappropriately elsewhere in the program and
+    //   "translate" it here.
+    if (DiskType == BBS_USB) {
+       DiskType = BBS_HARDDISK;
+       SearchingForUsb = TRUE;
     }
 
     // Grab the boot order
-    BootOrderSize = 0;
     BootOrder = BdsLibGetVariableAndSize (
         L"BootOrder",
-        &gEfiGlobalVariableGuid,
+        &EfiGlobalVariableGuid,
         &BootOrderSize
     );
+
     if (BootOrder == NULL) {
         BootOrderSize = 0;
     }
 
     Index = 0;
-    BbsDevicePath = NULL;
     while (Index < BootOrderSize / sizeof (UINT16)) {
-        // Grab each boot option variable from the boot order
-        // and convert the variable into a BDS boot option
-        SPrint (
-            BootOption, sizeof (BootOption),
-            L"Boot%04x", BootOrder[Index]
-        );
-
-        // Not building a list of boot options so init the head each time
+        // Grab each boot option variable from the boot order and convert
+        //   the variable into a BDS boot option
+        SPrint (BootOption, sizeof (BootOption), L"Boot%04x", BootOrder[Index]);
+        // We are not building a list of boot options so init the head each time
         InitializeListHead (&TempList);
         BdsOption = BdsLibVariableToOption (&TempList, BootOption);
-        if (BdsOption == NULL) {
-            Index++;
 
-            continue;
-        }
-
-        BbsDevicePath = (BBS_BBS_DEVICE_PATH *) BdsOption->DevicePath;
-        // Only add the entry if it is of a requested type (e.g. USB, HD).
-        // Two checks necessary because some systems return EFI boot loaders
-        //   with a DeviceType value that would inappropriately include them
-        //   as legacy loaders.
-        if (BbsDevicePath->DeviceType == DiskType &&
-            BdsOption->DevicePath->Type == DEVICE_TYPE_BIOS
-        ) {
-            // USB flash drives appear as hard disks with certain media flags set.
-            // Look for this, and if present, pass it on with the (technically
-            //   incorrect, but internally useful) BBS_TYPE_USB flag set.
-            if (DiskType != BBS_HARDDISK) {
-                AddLegacyEntryUEFI (BdsOption, DiskType);
-            }
-            else if (
-                AssumeUSB &&
-                (
-                    BbsDevicePath->StatusFlag &
-                    (BBS_MEDIA_PRESENT | BBS_MEDIA_MAYBE_PRESENT)
-                )
+        if (BdsOption != NULL) {
+            BbsDevicePath = (BBS_BBS_DEVICE_PATH *) BdsOption->DevicePath;
+            // Only add the entry if it is of a requested type (e.g. USB, HD).
+            // Two checks necessary because some systems return EFI boot loaders
+            //   with a DeviceType value that would inappropriately include them
+            //   as legacy loaders.
+            if ((BbsDevicePath->DeviceType == DiskType) &&
+                (BdsOption->DevicePath->Type == DEVICE_TYPE_BIOS)
             ) {
-                AddLegacyEntryUEFI (BdsOption, BBS_USB);
-            }
-            else if (
-                !AssumeUSB &&
-                !(
-                    BbsDevicePath->StatusFlag &
-                    (BBS_MEDIA_PRESENT | BBS_MEDIA_MAYBE_PRESENT)
-                )
-            ) {
-                AddLegacyEntryUEFI (BdsOption, DiskType);
-            }
-        } // if BbsDevicePath->DeviceType
+                #if REFIT_DEBUG > 0
+                if (Index > 0) {
+                    LOG(4, LOG_BLANK_LINE_SEP, L"X");
+                }
+                #endif
 
-        FreeBdsOption (&BdsOption);
+                // USB flash drives appear as hard disks with certain media flags set.
+                // Look for this, and if present, pass it on with the (technically
+                //   incorrect, but internally useful) BBS_TYPE_USB flag set.
+                if (DiskType == BBS_HARDDISK) {
+                    if (SearchingForUsb && (BbsDevicePath->StatusFlag &
+                        (BBS_MEDIA_PRESENT | BBS_MEDIA_MAYBE_PRESENT))
+                    ) {
+                        AddLegacyEntryUEFI (BdsOption, BBS_USB);
+                    }
+                    else if (!SearchingForUsb && !(BbsDevicePath->StatusFlag &
+                        (BBS_MEDIA_PRESENT | BBS_MEDIA_MAYBE_PRESENT))
+                    ) {
+                        AddLegacyEntryUEFI (BdsOption, DiskType);
+                    }
+                }
+                else {
+                    AddLegacyEntryUEFI (BdsOption, DiskType);
+                }
+            } // if BbsDevicePath->DeviceType
+
+            FreeBdsOption (&BdsOption);
+        } // if BdsOption != NULL
 
         Index++;
     } // while
 
-    MY_FREE_POOL(BootOrder);
-
-    BREAD_CRUMB(L"%a:  Z - END:- VOID", __func__);
-    LOG_DECREMENT();
-    LOG_SEP(L"X");
+    MyFreePool (&BootOrder);
 } // static VOID ScanLegacyUEFI()
 
 static
 VOID ScanLegacyVolume (
-    REFIT_VOLUME   *Volume,
-    UINTN           BaseIndex
+    REFIT_VOLUME *Volume,
+    UINTN         VolumeIndex
 ) {
-    #if REFIT_DEBUG > 0
-    CHAR16         *TheVolName;
-    BOOLEAN         TypeWholeDisk;
-    #endif
+    UINTN   VolumeIndex2;
+    BOOLEAN ShowVolume, HideIfOthersFound;
 
-    UINTN           i;
-    UINTN           VolumeIndex;
-    CHAR16         *VentoyName;
-    BOOLEAN         ShowVolume;
-    BOOLEAN         HideIfOthersFound;
+    ShowVolume        = FALSE;
+    HideIfOthersFound = FALSE;
 
-    static BOOLEAN  FoundVentoy = FALSE;
-
-
-    if (Volume == NULL) {
-        // Early Exit .. No Log
-        return;
+    if (Volume->HasBootCode) {
+        ShowVolume = TRUE;
+        if (Volume->BlockIO == Volume->WholeDiskBlockIO &&
+            Volume->BlockIOOffset == 0 &&
+            Volume->OSName == NULL
+        ) {
+            // Whole disk (MBR) entry found ... Hide this volume
+            HideIfOthersFound = TRUE;
+        }
     }
 
-    if (!Volume->HasBootCode) {
-        // Early Exit .. No Log
-        return;
-    }
-
-    LOG_SEP(L"X");
-    LOG_INCREMENT();
-    BREAD_CRUMB(L"%a:  1 - START", __func__);
-    if (!VolumeScanAllowed (Volume, FALSE, TRUE)) {
-        BREAD_CRUMB(L"%a:  1a 1 - END:- VOID - !VolumeScanAllowed", __func__);
-        LOG_DECREMENT();
-        LOG_SEP(L"X");
-
-        // Early Exit
-        return;
-    }
-
-    BREAD_CRUMB(L"%a:  2 - HasBootCode and VolumeScanAllowed", __func__);
-    if (Volume->FSType == FS_TYPE_WHOLEDISK ||
-        (
-            Volume->OSName           == NULL &&
-            Volume->BlockIOOffset    == 0    &&
-            Volume->WholeDiskBlockIO == Volume->BlockIO
-        )
-    ) {
-        BREAD_CRUMB(L"%a:  2a 1 - MBR Entry Type = 'Whole Disk'", __func__);
-        HideIfOthersFound = TRUE;
-
-        #if REFIT_DEBUG > 0
-        TypeWholeDisk = TRUE;
-        #endif
-    }
-    else {
-        BREAD_CRUMB(L"%a:  2b 1 - MBR Entry Type = 'Partition/Volume'", __func__);
-        HideIfOthersFound = FALSE;
-
-        #if REFIT_DEBUG > 0
-        TypeWholeDisk = FALSE;
-        #endif
-    }
-
-    #if REFIT_DEBUG > 0
-    BREAD_CRUMB(L"%a:  3", __func__);
-    if (Volume->VolName != NULL &&
-        StrLen (Volume->VolName) > 0
-    ) {
-        BREAD_CRUMB(L"%a:  3a 1", __func__);
-        TheVolName = Volume->VolName;
-    }
-    else {
-        BREAD_CRUMB(L"%a:  3b 1", __func__);
-        TheVolName = L"Unnamed";
-    }
-
-    BREAD_CRUMB(L"%a:  4", __func__);
-    if (!TypeWholeDisk) {
-        BREAD_CRUMB(L"%a:  4a 1", __func__);
-        ALT_LOG(1, LOG_LINE_THIN_SEP,
-            L"Handle Legacy Bootcode on Volume:- '%s'",
-            TheVolName
-        );
-    }
-    #endif
-
-    BREAD_CRUMB(L"%a:  5", __func__);
-    ShowVolume = TRUE;
     if (HideIfOthersFound) {
-        #if REFIT_DEBUG > 1
-        if (GlobalConfig.HandleVentoy) {
-            BREAD_CRUMB(L"%a:  5a 1 - Check for Ventoy or Bootable Legacy Instances on *SAME* Disk", __func__);
-        }
-        else {
-            BREAD_CRUMB(L"%a:  5b 1 - Check for Bootable Legacy Instances on *SAME* Disk", __func__);
-        }
-        #endif
-
-        for (VolumeIndex = 0; VolumeIndex < VolumesCount; VolumeIndex++) {
-            if (VolumeIndex == BaseIndex) {
-                continue;
-            }
-
-            LOG_SEP(L"X");
-            BREAD_CRUMB(L"%a:  5a 1a 1 - FOR LOOP:- START", __func__);
-            /* coverity[copy_paste_error: SUPPRESS] */
-            if (Volumes[VolumeIndex]->WholeDiskBlockIO == Volume->BlockIO       ||
-                Volumes[VolumeIndex]->WholeDiskBlockIO == Volume->WholeDiskBlockIO
+        // Check for other bootable entries on the same disk
+        for (VolumeIndex2 = 0; VolumeIndex2 < VolumesCount; VolumeIndex2++) {
+            if (VolumeIndex2 != VolumeIndex && Volumes[VolumeIndex2]->HasBootCode &&
+                Volumes[VolumeIndex2]->WholeDiskBlockIO == Volume->WholeDiskBlockIO
             ) {
-                BREAD_CRUMB(L"%a:  5a 1a 1a 1", __func__);
-                if (Volumes[VolumeIndex]->HasBootCode) {
-                    BREAD_CRUMB(L"%a:  5a 1a 1a 1a 1 - Found Bootable Legacy Instance ... Set Whole Disk 'Skip' Flag", __func__);
-                    ShowVolume = FALSE;
-                }
-
-                BREAD_CRUMB(L"%a:  5a 1a 1a 2", __func__);
-                if (!FoundVentoy) {
-                    BREAD_CRUMB(L"%a:  5a 1a 1a 2a 1", __func__);
-                    i = 0;
-                    while (ShowVolume && GlobalConfig.HandleVentoy) {
-                        VentoyName = FindCommaDelimited (
-                            VENTOY_NAMES, i++
-                        );
-                        if (VentoyName == NULL) break;
-
-                        BREAD_CRUMB(L"%a:  5a 1a 1a 2a 1a 1 - WHILE LOOP:- START ... Check for Ventoy Partition", __func__);
-                        if (MyStrBegins (VentoyName, Volumes[VolumeIndex]->VolName)) {
-                            BREAD_CRUMB(L"%a:  5a 1a 1a 2a 1a 1a 1 - Found ... Set Whole Disk 'Skip' Flag", __func__);
-                            ShowVolume = FALSE;
-                        }
-                        MY_FREE_POOL(VentoyName);
-                        BREAD_CRUMB(L"%a:  5a 1a 1a 2a 1a 2 - WHILE LOOP:- END", __func__);
-                    } // while
-                    BREAD_CRUMB(L"%a:  5a 1a 1a 2a 2", __func__);
-                } // if !FoundVentoy
-                BREAD_CRUMB(L"%a:  5a 1a 1a 1a 3", __func__);
-            } // if Volumes[VolumeIndex]->WholeDiskBlockIO
-            BREAD_CRUMB(L"%a:  5a 1a 2 - FOR LOOP:- END", __func__);
-            LOG_SEP(L"X");
-
-            if (!ShowVolume) {
-                break;
+                ShowVolume = FALSE;
             }
-        } // for
-        BREAD_CRUMB(L"%a:  5a 2", __func__);
+        }
     }
 
-    BREAD_CRUMB(L"%a:  6", __func__);
-    if (!ShowVolume) {
-        BREAD_CRUMB(L"%a:  6a 1 - END:- VOID ... Skip Whole Disk Volume", __func__);
-        LOG_DECREMENT();
-        LOG_SEP(L"X");
+    if (ShowVolume) {
+        if ((Volume->VolName == NULL) ||
+            (StrLen (Volume->VolName) < 1)
+        ) {
+            Volume->VolName = GetVolumeName (Volume);
+        }
 
-        return;
+        AddLegacyEntry (NULL, Volume);
     }
-
-    BREAD_CRUMB(L"%a:  7 - Process Legacy Boot Instance", __func__);
-    DisplayLoader = TRUE;
-    if ((Volume->VolName == NULL)   ||
-        (StrLen (Volume->VolName) == 0)
-    ) {
-        BREAD_CRUMB(L"%a:  7a 1 - Get Legacy Boot Instance Name", __func__);
-        Volume->VolName = GetVolumeName (Volume);
-        BREAD_CRUMB(L"%a:  7a 2", __func__);
-    }
-
-    #if REFIT_DEBUG > 0
-    BREAD_CRUMB(L"%a:  8", __func__);
-    if (TypeWholeDisk) {
-        BREAD_CRUMB(L"%a:  8a 1", __func__);
-        // DA_TAG: In case 'Whole Disk' is being added
-        ALT_LOG(1, LOG_LINE_THIN_SEP,
-            L"Handle Legacy Bootcode on Volume:- '%s'",
-            TheVolName
-        );
-    }
-    #endif
-
-    BREAD_CRUMB(L"%a:  9 - Add Legacy Boot Instance", __func__);
-    AddLegacyEntry (NULL, Volume);
-
-    BREAD_CRUMB(L"%a:  10 - END:- VOID", __func__);
-    LOG_DECREMENT();
-    LOG_SEP(L"X");
 } // static VOID ScanLegacyVolume()
 
-// Helper for Misc 'ScanLegacy' Funcions
-static
-VOID ScanLegacyEx (
-    UINT8         DiskType
-) {
+
+// Scan attached optical discs for legacy (BIOS) boot code
+//   and add anything found to the list.
+VOID ScanLegacyDisc (VOID) {
     UINTN         VolumeIndex;
     REFIT_VOLUME *Volume;
 
+    #if REFIT_DEBUG > 0
+    LOG(1, LOG_LINE_THIN_SEP,
+        L"Scanning Optical Discs with Mode:- 'Legacy (BIOS)'"
+    );
+    #endif
 
     FirstLegacyScan = TRUE;
-    if (GlobalConfig.LegacyType == LEGACY_TYPE_UEFI ||
-        GlobalConfig.LegacyType == LEGACY_TYPE_MAC2
-    ) {
-        ScanLegacyUEFI (DiskType);
+    if (GlobalConfig.LegacyType == LEGACY_TYPE_MAC) {
+        for (VolumeIndex = 0; VolumeIndex < VolumesCount; VolumeIndex++) {
+            Volume = Volumes[VolumeIndex];
+            if (Volume->DiskKind == DISK_KIND_OPTICAL) {
+                ScanLegacyVolume (Volume, VolumeIndex);
+            }
+         } // for
     }
-    else {
-        if (GlobalConfig.LegacyType == LEGACY_TYPE_MAC1) {
-            DisplayLoader = FALSE;
-            for (VolumeIndex = 0; VolumeIndex < VolumesCount; VolumeIndex++) {
-                Volume = Volumes[VolumeIndex];
-                if ((
-                        DiskType == BBS_HARDDISK &&
-                        Volume->DiskKind == DISK_KIND_INTERNAL
-                    ) || (
-                        DiskType == BBS_USB &&
-                        Volume->DiskKind == DISK_KIND_EXTERNAL
-                    ) || (
-                        DiskType == BBS_CDROM &&
-                        Volume->DiskKind == DISK_KIND_OPTICAL
-                    )
-                ) {
-                    ScanLegacyVolume (Volume, VolumeIndex);
-                }
-             } // for
-        }
+    else if (GlobalConfig.LegacyType == LEGACY_TYPE_UEFI) {
+        ScanLegacyUEFI (BBS_CDROM);
     }
     FirstLegacyScan = FALSE;
-
-    #if REFIT_DEBUG > 0
-    if (!DisplayLoader) {
-        ALT_LOG(1, LOG_STAR_HEAD_SEP, L"None Found");
-    }
-    #endif
-
-    DisplayLoader = TRUE;
-} // static VOID ScanLegacyEx()
-
-// Scan attached optical discs for legacy boot code
-// and add anything found to the list.
-VOID ScanLegacyDisc (VOID) {
-    #if REFIT_DEBUG > 0
-    ALT_LOG(1, LOG_THREE_STAR_SEP,
-        L"Optical Disk Volumes with Mode:- 'Legacy BIOS'"
-    );
-    #endif
-
-    LOG_SEP(L"X");
-    LOG_INCREMENT();
-    BREAD_CRUMB(L"%a:  A - START", __func__);
-
-    ScanLegacyEx (BBS_CDROM);
-
-    BREAD_CRUMB(L"%a:  Z - END:- VOID", __func__);
-    LOG_DECREMENT();
-    LOG_SEP(L"X");
 } // VOID ScanLegacyDisc()
 
-// Scan internal hard disks for legacy boot code
-// and add anything found to the list.
+// Scan internal hard disks for legacy (BIOS) boot code
+//   and add anything found to the list.
 VOID ScanLegacyInternal (VOID) {
+    UINTN         VolumeIndex;
+    REFIT_VOLUME *Volume;
+
     #if REFIT_DEBUG > 0
-    ALT_LOG(1, LOG_THREE_STAR_SEP,
-        L"Internal Disk Volumes with Mode:- 'Legacy BIOS'"
+    LOG(1, LOG_LINE_THIN_SEP,
+        L"Scanning Internal Disk Volumes with Mode:- 'Legacy (BIOS)'"
     );
     #endif
 
-    LOG_SEP(L"X");
-    LOG_INCREMENT();
-    BREAD_CRUMB(L"%a:  A - START", __func__);
-
-    // DA-TAG: Investigate This
-    //         This may pick USB flash drives up.
-    //         Try to find a way to differentiate.
-    ScanLegacyEx (BBS_HARDDISK);
-
-    BREAD_CRUMB(L"%a:  Z - END:- VOID", __func__);
-    LOG_DECREMENT();
-    LOG_SEP(L"X");
+    FirstLegacyScan = TRUE;
+    if (GlobalConfig.LegacyType == LEGACY_TYPE_MAC) {
+        for (VolumeIndex = 0; VolumeIndex < VolumesCount; VolumeIndex++) {
+            Volume = Volumes[VolumeIndex];
+            if (Volume->DiskKind == DISK_KIND_INTERNAL) {
+                ScanLegacyVolume (Volume, VolumeIndex);
+            }
+        } // for
+    }
+    else if (GlobalConfig.LegacyType == LEGACY_TYPE_UEFI) {
+       // TODO: This also picks USB flash drives up.
+       //       Try to find a way to differentiate.
+       ScanLegacyUEFI (BBS_HARDDISK);
+    }
+    FirstLegacyScan = FALSE;
 } // VOID ScanLegacyInternal()
 
-// Scan external disks for legacy boot code
-// and add anything found to the list.
+// Scan external disks for legacy (BIOS) boot code
+//   and add anything found to the list.
 VOID ScanLegacyExternal (VOID) {
-    #if REFIT_DEBUG > 0
-    ALT_LOG(1, LOG_THREE_STAR_SEP,
-        L"External Disk Volumes with Mode:- 'Legacy BIOS'"
-    );
-    #endif
+    UINTN         VolumeIndex;
+    REFIT_VOLUME *Volume;
 
-    LOG_SEP(L"X");
-    LOG_INCREMENT();
-    BREAD_CRUMB(L"%a:  A - START", __func__);
+   #if REFIT_DEBUG > 0
+   LOG(1, LOG_LINE_THIN_SEP,
+       L"Scanning External Disk Volumes with Mode:- 'Legacy (BIOS)'"
+   );
+   #endif
 
-    // DA-TAG: Investigate This
-    //         This does not actually do anything useful.
-    //         Leaving in hope of fixing later.
-    ScanLegacyEx (BBS_USB);
-
-    BREAD_CRUMB(L"%a:  Z - END:- VOID", __func__);
-    LOG_DECREMENT();
-    LOG_SEP(L"X");
+   FirstLegacyScan = TRUE;
+   if (GlobalConfig.LegacyType == LEGACY_TYPE_MAC) {
+      for (VolumeIndex = 0; VolumeIndex < VolumesCount; VolumeIndex++) {
+         Volume = Volumes[VolumeIndex];
+         if (Volume->DiskKind == DISK_KIND_EXTERNAL) {
+             ScanLegacyVolume (Volume, VolumeIndex);
+         }
+      } // for
+   }
+   else if (GlobalConfig.LegacyType == LEGACY_TYPE_UEFI) {
+      // TODO: This actually does not do anything useful.
+      //       Leaving in hope of fixing it later.
+      ScanLegacyUEFI (BBS_USB);
+   }
+   FirstLegacyScan = FALSE;
 } // VOID ScanLegacyExternal()
 
-// Determine what/if legacy BIOS boot support is available
+// Determine what (if any) type of legacy (BIOS) boot support is available
 VOID FindLegacyBootType (VOID) {
     EFI_STATUS                 Status;
-    BOOLEAN                    SyncTag;
-    UINTN                      ExSize;
-    VOID                      *ExBuf;
     EFI_LEGACY_BIOS_PROTOCOL  *LegacyBios;
 
+    GlobalConfig.LegacyType = LEGACY_TYPE_NONE;
 
+    // UEFI-style legacy BIOS support is only available with some EFI implementations
     Status = REFIT_CALL_3_WRAPPER(
-        gBS->LocateProtocol, &gEfiLegacyBootProtocolGuid,
+        gBS->LocateProtocol,
+        &gEfiLegacyBootProtocolGuid,
         NULL, (VOID **) &LegacyBios
     );
-    if (!EFI_ERROR(Status)) {
-        // Assume UEFI Class 2 Unit - Enable
-        GlobalConfig.LegacyType = (
-            AppleFirmware
-        ) ? LEGACY_TYPE_MAC2 : LEGACY_TYPE_UEFI;
 
-        return;
+    if (!EFI_ERROR (Status)) {
+        GlobalConfig.LegacyType = LEGACY_TYPE_UEFI;
     }
 
-    SyncTag = GlobalConfig.LegacySync;
-    if (AppleFirmware) {
-        ExSize = 0;
-        ExBuf  = NULL;
-        Status = GetHardwareNvramVariable (
-            L"BootCampHD",
-            &AppleVariableVendorID,
-            &ExBuf, &ExSize
-        );
-        if (Status != EFI_NOT_FOUND) {
-            SyncTag = FALSE;
-        }
-    }
-
-    if (!AppleFirmware ||
-        (
-            SyncTag                        &&
-            (gST->Hdr.Revision >> 16U) > 1 &&
-            (gBS->Hdr.Revision >> 16U) > 1 &&
-            (gRT->Hdr.Revision >> 16U) > 1
-        )
-    ) {
-        // Assume UEFI Class 3 Unit - Disable
-        GlobalConfig.LegacyType = (
-            AppleFirmware
-        ) ? LEGACY_TYPE_MAC3 : LEGACY_TYPE_NONE;
-    }
-    else {
-        // 'LegacySync' is Off or Other uEFI Mac - Enable
-        GlobalConfig.LegacyType = LEGACY_TYPE_MAC1;
+    // Macs have their own system. If the firmware vendor code contains the
+    //   string "Apple", assume it is available. Note that this overrides the
+    //   UEFI type, and might yield false positives if the vendor string
+    //   contains "Apple" as part of something bigger, so this is not perfect.
+    if (MyStriCmp (L"Apple", gST->FirmwareVendor)) {
+        GlobalConfig.LegacyType = LEGACY_TYPE_MAC;
     }
 } // VOID FindLegacyBootType()
 
-// Warn user if legacy OS scans are enabled but
-// the firmware does not support legacy BIOS boot.
+// Warn user if legacy OS scans are enabled but the firmware does not support them
 VOID WarnIfLegacyProblems (VOID) {
-    #if REFIT_DEBUG > 0
-    BOOLEAN   TmpLevel;
-    BOOLEAN   CheckMute = FALSE;
-    #endif
-
-    UINTN     i;
-    BOOLEAN   found;
-    CHAR16   *MsgStr;
-    CHAR16   *TxtMsg;
-    CHAR16   *ExtMsg;
-    CHAR16   *Spacer;
+    UINTN     i     = 0;
+    BOOLEAN   found = FALSE;
 
 
-    LOG_SEP(L"X");
-    LOG_INCREMENT();
-    BREAD_CRUMB(L"%a:  A - START", __func__);
+    if (GlobalConfig.LegacyType == LEGACY_TYPE_NONE) {
+        do {
+            if (GlobalConfig.ScanFor[i] == 'H' || GlobalConfig.ScanFor[i] == 'h' ||
+                GlobalConfig.ScanFor[i] == 'C' || GlobalConfig.ScanFor[i] == 'c' ||
+                GlobalConfig.ScanFor[i] == 'B' || GlobalConfig.ScanFor[i] == 'b'
+            ) {
+                found = TRUE;
+            }
+            i++;
+        } while ((i < NUM_SCAN_OPTIONS) && (!found));
 
-    if (GlobalConfig.LegacyType != LEGACY_TYPE_NONE &&
-        GlobalConfig.LegacyType != LEGACY_TYPE_MAC3
-    ) {
-        BREAD_CRUMB(L"%a:  A1 - END:- VOID ... Early Return", __func__);
-        LOG_DECREMENT();
-        LOG_SEP(L"X");
+        if (found) {
+            #if REFIT_DEBUG > 0
+            LOG(1, LOG_LINE_NORMAL,
+                L"Legacy (BIOS) support enabled in RefindPlus but unavailable in EFI!!"
+            );
+            #endif
 
-        // Early Return
-        return;
-    }
+            SwitchToText (FALSE);
 
-    i = 0;
-    found = FALSE;
-    do {
-        if (GlobalConfig.ScanFor[i] == 'H' || GlobalConfig.ScanFor[i] == 'h' ||
-            GlobalConfig.ScanFor[i] == 'C' || GlobalConfig.ScanFor[i] == 'c' ||
-            GlobalConfig.ScanFor[i] == 'B' || GlobalConfig.ScanFor[i] == 'b'
-        ) {
-            found = TRUE;
+            CHAR16 *MsgStr =
+                L"** WARN: Your 'scanfor' config line specifies scanning for one or more legacy\n"
+                L"         (BIOS) boot options; however, this is not possible because your computer\n"
+                L"         lacks the necessary Compatibility Support Module (CSM) support or that support\n"
+                L"         is disabled in your firmware.";
+
+            REFIT_CALL_2_WRAPPER(gST->ConOut->SetAttribute, gST->ConOut, ATTR_ERROR);
+            PrintUglyText (MsgStr, NEXTLINE);
+            REFIT_CALL_2_WRAPPER(gST->ConOut->SetAttribute, gST->ConOut, ATTR_BASIC);
+
+            #if REFIT_DEBUG > 0
+            MsgLog ("%s\n\n", MsgStr);
+            #endif
+
+            PauseForKey();
         }
-        i++;
-    } while ((i < NUM_SCAN_OPTIONS) && (!found));
-
-    if (!found) {
-        BREAD_CRUMB(L"%a:  A2 - END:- VOID ... Early Return", __func__);
-        LOG_DECREMENT();
-        LOG_SEP(L"X");
-
-        // Early Return
-        return;
-    }
-
-    #if REFIT_DEBUG > 0
-    MsgStr = L"Legacy BIOS Boot Scan Enabled but *NOT* Available in Firmware";
-    TmpLevel = (GlobalConfig.LogLevel == 0) ? TRUE : FALSE;
-    if (TmpLevel) {
-        GlobalConfig.LogLevel = 1;
-    }
-    ALT_LOG(1, LOG_STAR_SEPARATOR, L"%s", MsgStr);
-    if (TmpLevel) {
-        GlobalConfig.LogLevel = 0;
-    }
-    #endif
-
-    TxtMsg = L"WARN: Legacy BIOS Boot Issues                                  ";
-    Spacer = L"                                                               ";
-    MsgStr = L"Your 'scanfor' config line specifies scanning for one or more  \n"
-             L"legacy (BIOS) boot options but this *IS NOT* possible as your  \n"
-             L"computer lacks the required Compatibility Support Module (CSM) \n"
-             L"or because Legacy BIOS Boot has been disabled in your firmware.";
-    ExtMsg = L"Remove the legacy (BIOS) boot settings from the 'scanfor' list.\n"
-             L"  - Items to remove from list: hdbios, biosexternal and cdbios.";
-
-    #if REFIT_DEBUG > 0
-    if (TmpLevel) {
-        GlobalConfig.LogLevel = 1;
-        LOG_SEP(L"X");
-    }
-    ALT_LOG(1, LOG_LINE_NORMAL, L"%s\n%s", TxtMsg, MsgStr);
-    if (AppleFirmware) {
-        ALT_LOG(1, LOG_LINE_NORMAL, L"\n%s", ExtMsg);
-    }
-    ALT_LOG(1, LOG_BLANK_LINE_SEP, L"X");
-    if (TmpLevel) {
-        GlobalConfig.LogLevel = 0;
-    }
-    #endif
-
-    if (!GlobalConfig.DirectBoot) {
-        #if REFIT_DEBUG > 0
-        MY_MUTELOGGER_SET;
-        #endif
-        SwitchToText (FALSE);
-
-        REFIT_CALL_2_WRAPPER(gST->ConOut->SetAttribute, gST->ConOut, ATTR_ERROR);
-        PrintUglyText (Spacer, NEXTLINE);
-        PrintUglyText (TxtMsg, NEXTLINE);
-        PrintUglyText (Spacer, NEXTLINE);
-
-        REFIT_CALL_2_WRAPPER(gST->ConOut->SetAttribute, gST->ConOut, ATTR_BASIC);
-        PrintUglyText (Spacer, NEXTLINE);
-        PrintUglyText (MsgStr, NEXTLINE);
-        PrintUglyText (Spacer, NEXTLINE);
-        if (AppleFirmware) {
-            PrintUglyText (ExtMsg, NEXTLINE);
-            PrintUglyText (Spacer, NEXTLINE);
-        }
-
-        PauseForKey();
-        #if REFIT_DEBUG > 0
-        MY_MUTELOGGER_OFF;
-        #endif
-    }
-
-    BREAD_CRUMB(L"%a:  Z - END:- VOID", __func__);
-    LOG_DECREMENT();
-    LOG_SEP(L"X");
+    } // if GlobalConfig.LegacyType
 } // VOID WarnIfLegacyProblems()

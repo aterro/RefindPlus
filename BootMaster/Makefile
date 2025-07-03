@@ -1,5 +1,5 @@
 #
-# BootMaster/Makefile
+# refind/Makefile
 # Build control file for the rEFInd boot menu
 #
 # This program is licensed under the terms of the GNU GPL, version 3,
@@ -57,3 +57,4 @@ $(TARGET): $(SHLIB_TARGET)
 clean:
 	rm -f $(TARGET) *~ *.so $(OBJS) *.efi *.obj refind_*.txt \
 		refind_*.dll *.lib
+

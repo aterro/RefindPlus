@@ -2,7 +2,7 @@
  * AcquireGOP.c
  * Installs GOP by reloading a copy of the GPU's OptionROM from RAM
  *
- * Copyright (c) 2020-2024 Dayo Akanji (sf.net/u/dakanji/profile)
+ * Copyright (c) 2020 Dayo Akanji (sf.net/u/dakanji/profile)
  * Portions Copyright (c) 2020 Joe van Tunen (joevt@shaw.ca)
  * Portions Copyright (c) 2004-2008 The Intel Corporation
  *
@@ -15,15 +15,9 @@
 /**
   @retval EFI_INCOMPATIBLE_VERSION  Not running on compatible TianoCore compiled version
 **/
-EFI_STATUS AcquireGOP (VOID) {
-    // NOOP if not compiled using EDK II
-    return EFI_INCOMPATIBLE_VERSION;
-}
-
-/**
-  @retval EFI_INCOMPATIBLE_VERSION  Not running on compatible TianoCore compiled version
-**/
-EFI_STATUS ReissueGOP (VOID) {
+EFI_STATUS AcquireGOP (
+    VOID
+) {
     // NOOP if not compiled using EDK II
     return EFI_INCOMPATIBLE_VERSION;
 }
@@ -48,7 +42,6 @@ EFI_STATUS ReissueGOP (VOID) {
   @retval EFI_NOT_FOUND             Failed to Locate Suitable Option ROM.
   @retval Other value               Unknown error.
 **/
-static
 EFI_STATUS ReloadOptionROM (
     IN       VOID    *RomBar,
     IN       UINT64   RomSize,
@@ -68,16 +61,15 @@ EFI_STATUS ReloadOptionROM (
     CHAR16                        *RomFileName;
     BOOLEAN                        LoadROM;
     EFI_STATUS                     Status;
-    EFI_STATUS                     ReturnStatus;
     EFI_HANDLE                     ImageHandle;
     PCI_DATA_STRUCTURE            *Pcir;
     EFI_DECOMPRESS_PROTOCOL       *Decompress;
     EFI_DEVICE_PATH_PROTOCOL      *FilePath;
     EFI_PCI_EXPANSION_ROM_HEADER  *EfiRomHeader;
 
-    ImageIndex   = 0;
-    ReturnStatus = Status = EFI_NOT_FOUND;
-    RomBarOffset = (UINTN) RomBar;
+    ImageIndex    = 0;
+    Status        = EFI_NOT_FOUND;
+    RomBarOffset  = (UINTN) RomBar;
 
     do {
         LoadROM      = FALSE;
@@ -89,14 +81,9 @@ EFI_STATUS ReloadOptionROM (
 
         // If the pointer to the PCI Data Structure is invalid, no further images can be located.
         // The PCI Data Structure must be DWORD aligned.
-        if ((EfiRomHeader->PcirOffset == 0)     ||
+        if (EfiRomHeader->PcirOffset == 0 ||
             (EfiRomHeader->PcirOffset & 3) != 0 ||
-            (
-                RomBarOffset                  -
-                (UINTN) RomBar                +
-                EfiRomHeader->PcirOffset      +
-                sizeof (PCI_DATA_STRUCTURE)
-            ) > RomSize
+            RomBarOffset - (UINTN) RomBar + EfiRomHeader->PcirOffset + sizeof (PCI_DATA_STRUCTURE) > RomSize
         ) {
             break;
         }
@@ -110,121 +97,114 @@ EFI_STATUS ReloadOptionROM (
 
         ImageSize = Pcir->ImageLength * 512;
 
-        if ((RomBarOffset - (UINTN) RomBar + ImageSize) > RomSize) {
+        if (RomBarOffset - (UINTN)RomBar + ImageSize > RomSize) {
             break;
         }
 
-        if (Pcir->CodeType == PCI_CODE_TYPE_EFI_IMAGE &&
-            EfiRomHeader->EfiSignature  == EFI_PCI_EXPANSION_ROM_HEADER_EFISIGNATURE &&
-            (
-                EfiRomHeader->EfiSubsystem == EFI_IMAGE_SUBSYSTEM_EFI_BOOT_SERVICE_DRIVER ||
-                EfiRomHeader->EfiSubsystem == EFI_IMAGE_SUBSYSTEM_EFI_RUNTIME_DRIVER
-            )
+        if ((Pcir->CodeType == PCI_CODE_TYPE_EFI_IMAGE) &&
+            (EfiRomHeader->EfiSignature  == EFI_PCI_EXPANSION_ROM_HEADER_EFISIGNATURE) &&
+            ((EfiRomHeader->EfiSubsystem == EFI_IMAGE_SUBSYSTEM_EFI_BOOT_SERVICE_DRIVER) ||
+            (EfiRomHeader->EfiSubsystem  == EFI_IMAGE_SUBSYSTEM_EFI_RUNTIME_DRIVER))
         ) {
-            ImageOffset        = EfiRomHeader->EfiImageHeaderOffset;
-            InitializationSize = EfiRomHeader->InitializationSize * 512;
+            ImageOffset         = EfiRomHeader->EfiImageHeaderOffset;
+            InitializationSize  = EfiRomHeader->InitializationSize * 512;
 
             if (InitializationSize <= ImageSize && ImageOffset < InitializationSize) {
                 ImageBuffer             = (VOID *) (UINTN) (RomBarOffset + ImageOffset);
                 ImageLength             = InitializationSize - ImageOffset;
                 DecompressedImageBuffer = NULL;
-                DestinationSize         = 0; // DA-TAG: Redundant for Infer
 
-                if (EfiRomHeader->CompressionType != EFI_PCI_EXPANSION_ROM_HEADER_COMPRESSED) {
-                    // Uncompressed image ... Tag as Success to load 'as is'
-                    Status = EFI_SUCCESS;
-                }
-                else {
-                    // Compressed image ... Decompress before loading
+                if (EfiRomHeader->CompressionType == EFI_PCI_EXPANSION_ROM_HEADER_COMPRESSED) {
                     Status = REFIT_CALL_3_WRAPPER(
-                        gBS->LocateProtocol, &gEfiDecompressProtocolGuid,
-                        NULL, (VOID **) &Decompress
+                        gBS->LocateProtocol,
+                        &gEfiDecompressProtocolGuid,
+                        NULL,
+                        (VOID **) &Decompress
                     );
-                    if (!EFI_ERROR(Status)) {
-                        Status = REFIT_CALL_5_WRAPPER(
-                            Decompress->GetInfo, Decompress,
-                            ImageBuffer, ImageLength,
-                            &DestinationSize, &ScratchSize
-                        );
-                        if (!EFI_ERROR(Status)) {
-                            DecompressedImageBuffer = AllocateZeroPool (DestinationSize);
-                            if (DecompressedImageBuffer == NULL) {
-                                MY_FREE_POOL(ImageBuffer);
 
+                    if (!EFI_ERROR (Status)) {
+                        Status = REFIT_CALL_5_WRAPPER(
+                            Decompress->GetInfo,
+                            Decompress,
+                            ImageBuffer,
+                            ImageLength,
+                            &DestinationSize,
+                            &ScratchSize
+                        );
+
+                        if (!EFI_ERROR (Status)) {
+                            DecompressedImageBuffer = AllocateZeroPool (DestinationSize);
+
+                            if (DecompressedImageBuffer == NULL) {
                                 return EFI_OUT_OF_RESOURCES;
                             }
 
                             if (ImageBuffer != NULL) {
                                 Scratch = AllocateZeroPool (ScratchSize);
-                                if (Scratch == NULL) {
-                                    MY_FREE_POOL(ImageBuffer);
-                                    MY_FREE_POOL(DecompressedImageBuffer);
 
+                                if (Scratch == NULL) {
                                     return EFI_OUT_OF_RESOURCES;
                                 }
+                                else {
+                                    Status = REFIT_CALL_7_WRAPPER(
+                                        Decompress->Decompress,
+                                        Decompress,
+                                        ImageBuffer,
+                                        ImageLength,
+                                        DecompressedImageBuffer,
+                                        DestinationSize,
+                                        Scratch,
+                                        ScratchSize
+                                    );
 
-                                Status = REFIT_CALL_7_WRAPPER(
-                                    Decompress->Decompress, Decompress,
-                                    ImageBuffer, ImageLength,
-                                    DecompressedImageBuffer, DestinationSize,
-                                    Scratch, ScratchSize
-                                );
-                                if (!EFI_ERROR(Status)) {
-                                    LoadROM = TRUE;
+                                    if (!EFI_ERROR (Status)) {
+                                        LoadROM     = TRUE;
+                                        ImageBuffer = DecompressedImageBuffer;
+                                        ImageLength = DestinationSize;
+                                    }
+
+                                    MyFreePool (&Scratch);
                                 }
-
-                                MY_FREE_POOL(Scratch);
                             }
-                        } // if !EFI_ERROR Status = REFIT_CALL_5_WRAPPER
-                    } // if !EFI_ERROR Status = REFIT_CALL_3_WRAPPER
-                } // if EfiRomHeader
-
-                if (LoadROM) {
-                    MY_FREE_POOL(ImageBuffer);
-                    ImageBuffer = DecompressedImageBuffer;
-                    ImageLength = DestinationSize;
+                        }
+                    }
                 }
 
-                if (!EFI_ERROR(Status)) {
+                if (LoadROM) {
                     RomFileName = PoolPrint (L"%s[%d]", FileName, ImageIndex);
-                    FilePath = REFIT_CALL_2_WRAPPER(FileDevicePath, NULL, RomFileName);
-                    Status = REFIT_CALL_6_WRAPPER(
-                        gBS->LoadImage, TRUE,
-                        gImageHandle, FilePath,
-                        ImageBuffer, ImageLength, &ImageHandle
+                    FilePath    = REFIT_CALL_2_WRAPPER(FileDevicePath, NULL, RomFileName);
+                    Status      = REFIT_CALL_6_WRAPPER(
+                        gBS->LoadImage,
+                        TRUE,
+                        gImageHandle,
+                        FilePath,
+                        ImageBuffer,
+                        ImageLength,
+                        &ImageHandle
                     );
-                    if (EFI_ERROR(Status)) {
+
+                    if (EFI_ERROR (Status)) {
                         if (Status == EFI_SECURITY_VIOLATION) {
                             REFIT_CALL_1_WRAPPER(gBS->UnloadImage, ImageHandle);
                         }
                     }
                     else {
-                        Status = REFIT_CALL_3_WRAPPER(
-                            gBS->StartImage, ImageHandle,
-                            NULL, NULL
-                        );
+                        Status = REFIT_CALL_3_WRAPPER(gBS->StartImage, ImageHandle, NULL, NULL);
                     }
 
-                     MY_FREE_POOL(RomFileName);
+                     MyFreePool (&RomFileName);
                 }
 
-                MY_FREE_POOL(ImageBuffer);
-            } // if InitializationSize
-        } // if Pcir->CodeType
+                MyFreePool (&DecompressedImageBuffer);
+            }
+        }
 
         RomBarOffset = RomBarOffset + ImageSize;
         ImageIndex++;
+    } while (((Pcir->Indicator & 0x80) == 0x00) && ((RomBarOffset - (UINTN) RomBar) < RomSize));
 
-        if (EFI_ERROR(ReturnStatus)) {
-            ReturnStatus = Status;
-        }
-    } while (
-        (Pcir->Indicator & 0x80) == 0x00 &&
-        (RomBarOffset - (UINTN) RomBar) < RomSize
-    );
-
-    return ReturnStatus;
-} // EFI_STATUS ReloadOptionROM()
+    return Status;
+}
 
 /**
   @retval EFI_SUCCESS               The command completed successfully.
@@ -234,182 +214,88 @@ EFI_STATUS ReloadOptionROM (
   @retval EFI_VOLUME_CORRUPTED      Inconsistent signatures.
   @retval EFI_PROTOCOL_ERROR        PciIoProtocolGuid not found.
   @retval EFI_LOAD_ERROR            Failed to get PciIoProtocolGuid handle.
+  @retval EFI_INCOMPATIBLE_VERSION  Running on incompatible GNU-EFI compiled version.
   @retval EFI_NO_MAPPING            Invalid Binding Handle Count.
   @retval EFI_NOT_FOUND             Failed to Locate Suitable Option ROM.
   @retval Other value               Unknown error.
 **/
-EFI_STATUS ReissueGOP (VOID) {
-    UINTN                 Index;
-    UINTN                 HandleIndex;
-    UINTN                 HandleArrayCount;
-    UINTN                 BindingHandleCount;
-    CHAR16               *RomFileName;
-    EFI_HANDLE           *HandleArray;
-    EFI_HANDLE           *BindingHandleBuffer;
+EFI_STATUS AcquireGOP (
+    VOID
+) {
+    UINTN                 Index                = 0;
+    UINTN                 HandleIndex          = 0;
+    UINTN                 HandleArrayCount     = 0;
+    UINTN                 BindingHandleCount   = 0;
+    CHAR16               *RomFileName          = NULL;
+    EFI_HANDLE           *HandleArray          = NULL;
+    EFI_HANDLE           *BindingHandleBuffer  = NULL;
     EFI_STATUS            ReturnStatus;
     EFI_STATUS            Status;
     EFI_PCI_IO_PROTOCOL  *PciIo;
 
-    HandleArrayCount = 0;
-    HandleArray = NULL;
     Status = REFIT_CALL_5_WRAPPER(
-        gBS->LocateHandleBuffer, ByProtocol,
-        &gEfiPciIoProtocolGuid, NULL,
-        &HandleArrayCount, &HandleArray
+        gBS->LocateHandleBuffer,
+        ByProtocol,
+        &gEfiPciIoProtocolGuid,
+        NULL,
+        &HandleArrayCount,
+        &HandleArray
     );
-    if (EFI_ERROR(Status)) {
-        // Early Return
-        return EFI_PROTOCOL_ERROR;
-    }
 
-    ReturnStatus = EFI_LOAD_ERROR;
-    for (Index = 0; Index < HandleArrayCount; Index++) {
-        Status = REFIT_CALL_3_WRAPPER(
-            gBS->HandleProtocol, HandleArray[Index],
-            &gEfiPciIoProtocolGuid, (void **) &PciIo
-        );
-        if (EFI_ERROR(Status)) {
-            if (EFI_ERROR(ReturnStatus)) {
+    if (EFI_ERROR (Status)) {
+        ReturnStatus = EFI_PROTOCOL_ERROR;
+    }
+    else {
+        ReturnStatus = EFI_LOAD_ERROR;
+
+        for (Index = 0; Index < HandleArrayCount; Index++) {
+            Status = REFIT_CALL_3_WRAPPER(
+                gBS->HandleProtocol,
+                HandleArray[Index],
+                &gEfiPciIoProtocolGuid,
+                (void **) &PciIo
+            );
+
+            if (!EFI_ERROR (Status)) {
+                if (!PciIo->RomImage || !PciIo->RomSize) {
+                    Status = EFI_NOT_FOUND;
+                }
+                else {
+                    BindingHandleBuffer = NULL;
+                    REFIT_CALL_3_WRAPPER(
+                        PARSE_HANDLE_DATABASE_UEFI_DRIVERS,
+                        HandleArray[Index],
+                        &BindingHandleCount,
+                        &BindingHandleBuffer
+                    );
+
+                    if (BindingHandleCount != 0) {
+                        Status = EFI_NO_MAPPING;
+                    }
+                    else {
+                        HandleIndex = ConvertHandleToHandleIndex (HandleArray[Index]);
+                        RomFileName = PoolPrint (L"Handle%X", HandleIndex);
+
+                        Status = ReloadOptionROM (
+                            PciIo->RomImage,
+                            PciIo->RomSize,
+                            (const CHAR16 *) RomFileName
+                        );
+
+                        MyFreePool (&RomFileName);
+                    } // if BindingHandleCount
+
+                    MyFreePool (&BindingHandleBuffer);
+                } // if/else !PciIo->RomImage || !PciIo->RomSize
+            } // if !EFI_ERROR Status
+
+            if (EFI_ERROR (ReturnStatus)) {
                 ReturnStatus = Status;
             }
-
-            continue;
-        }
-
-        if (PciIo->RomImage == NULL || PciIo->RomSize == 0) {
-            if (EFI_ERROR(ReturnStatus)) {
-                ReturnStatus = EFI_NOT_FOUND;
-            }
-
-            continue;
-        }
-
-        BindingHandleCount = 0;
-        BindingHandleBuffer = NULL;
-        REFIT_CALL_3_WRAPPER(
-            PARSE_HANDLE_DATABASE_UEFI_DRIVERS, HandleArray[Index],
-            &BindingHandleCount, &BindingHandleBuffer
-        );
-        if (BindingHandleCount != 0) {
-            MY_FREE_POOL(BindingHandleBuffer);
-
-            if (EFI_ERROR(ReturnStatus)) {
-                ReturnStatus = EFI_NO_MAPPING;
-            }
-
-            continue;
-        }
-
-        HandleIndex = ConvertHandleToHandleIndex (HandleArray[Index]);
-        RomFileName = PoolPrint (L"Handle%X", HandleIndex);
-
-        Status = ReloadOptionROM (
-            PciIo->RomImage,
-            PciIo->RomSize,
-            (const CHAR16 *) RomFileName
-        );
-        if (EFI_ERROR(ReturnStatus)) {
-            ReturnStatus = Status;
-        }
-
-        MY_FREE_POOL(RomFileName);
-        MY_FREE_POOL(BindingHandleBuffer);
-    } // for
-
-    MY_FREE_POOL(HandleArray);
+        } // for
+    } // if/else EFI_ERROR Status
 
     return ReturnStatus;
-} // EFI_STATUS ReissueGOP()
-
-/**
-  @retval EFI_SUCCESS               The command completed successfully.
-  @retval EFI_INVALID_PARAMETER     Command usage error.
-  @retval EFI_UNSUPPORTED           Protocols unsupported.
-  @retval EFI_OUT_OF_RESOURCES      Out of memory.
-  @retval EFI_VOLUME_CORRUPTED      Inconsistent signatures.
-  @retval EFI_PROTOCOL_ERROR        PciIoProtocolGuid not found.
-  @retval EFI_LOAD_ERROR            Failed to get PciIoProtocolGuid handle.
-  @retval EFI_NO_MAPPING            Invalid Binding Handle Count.
-  @retval EFI_NOT_FOUND             Failed to Locate Suitable Option ROM.
-  @retval Other value               Unknown error.
-**/
-EFI_STATUS AcquireGOP (VOID) {
-    UINTN                 Index;
-    UINTN                 HandleArrayCount;
-    UINTN                 BindingHandleCount;
-    BOOLEAN               FirstLoop;
-    EFI_HANDLE           *HandleArray;
-    EFI_HANDLE           *BindingHandleBuffer;
-    EFI_STATUS            ReturnStatus;
-    EFI_STATUS            Status;
-    EFI_PCI_IO_PROTOCOL  *PciIo;
-
-    HandleArrayCount = 0;
-    HandleArray = NULL;
-    Status = REFIT_CALL_5_WRAPPER(
-        gBS->LocateHandleBuffer, ByProtocol,
-        &gEfiPciIoProtocolGuid, NULL,
-        &HandleArrayCount, &HandleArray
-    );
-    if (EFI_ERROR(Status)) {
-        // Early Return
-        return EFI_PROTOCOL_ERROR;
-    }
-
-    FirstLoop = TRUE;
-    BindingHandleBuffer = NULL;
-    ReturnStatus = EFI_LOAD_ERROR;
-    for (Index = 0; Index < HandleArrayCount; Index++) {
-        do {
-            if (FirstLoop == TRUE) {
-                // Initialise on First Loop
-                BindingHandleBuffer = NULL;
-            }
-
-            Status = REFIT_CALL_3_WRAPPER(
-                gBS->HandleProtocol, HandleArray[Index],
-                &gEfiPciIoProtocolGuid, (void **) &PciIo
-            );
-            if (EFI_ERROR(Status)) {
-                break;
-            }
-
-            if (PciIo->RomImage == NULL || PciIo->RomSize == 0) {
-                if (EFI_ERROR(ReturnStatus)) {
-                    ReturnStatus = EFI_NOT_FOUND;
-                }
-
-                break;
-            }
-
-            BindingHandleCount = 0;
-            REFIT_CALL_3_WRAPPER(
-                PARSE_HANDLE_DATABASE_UEFI_DRIVERS, HandleArray[Index],
-                &BindingHandleCount, &BindingHandleBuffer
-            );
-            if (BindingHandleCount != 0) {
-                if (EFI_ERROR(ReturnStatus)) {
-                    ReturnStatus = EFI_NO_MAPPING;
-                }
-
-                break;
-            }
-
-            ReturnStatus = EFI_SUCCESS;
-        } while (0); // This 'loop' only runs once
-
-        FirstLoop = FALSE;
-
-        MY_FREE_POOL(BindingHandleBuffer);
-
-        if (!EFI_ERROR(ReturnStatus)) {
-            break;
-        }
-    } // for
-
-    MY_FREE_POOL(HandleArray);
-
-    return ReturnStatus;
-} // EFI_STATUS AcquireGOP()
+}
 
 #endif

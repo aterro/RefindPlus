@@ -33,12 +33,6 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-/*
- * Modified for RefindPlus
- * Copyright (c) 2020-2025 Dayo Akanji (sf.net/u/dakanji/profile)
- *
- * Modifications distributed under the preceding terms.
- */
 
 #ifndef __SCREEN_H_
 #define __SCREEN_H_
@@ -53,7 +47,7 @@
 #include "libeg.h"
 
 //
-// Screen module
+// screen module
 //
 
 #define DONT_CHANGE_TEXT_MODE 1024 /* textmode # that is a code to not change the text mode */
@@ -69,82 +63,67 @@
 //#define LAYOUT_TEXT_WIDTH (425)
 #define LAYOUT_BANNER_YGAP 32
 
-//#define FONT_CELL_WIDTH   (7)
+//#define FONT_CELL_WIDTH (7)
 //#define FONT_CELL_HEIGHT (12)
 
-// Text position codes for 'egDisplayMessage' and 'PrintUglyText'
-#define CENTER   (0)
-#define BOTTOM   (1)
-#define TOP      (2)
-#define NEXTLINE (3)
+// Codes for text position, used by egDisplayMessage() and PrintUglyText()
+#define CENTER 0
+#define BOTTOM 1
+#define TOP 2
+#define NEXTLINE 3
 
-extern UINTN     ConWidth;
-extern UINTN     ConHeight;
-extern UINTN     ScreenW;
-extern UINTN     ScreenH;
-extern CHAR16   *BlankLine;
-extern BOOLEAN   AllowGraphicsMode;
+extern UINTN ConWidth;
+extern UINTN ConHeight;
+extern CHAR16 *BlankLine;
+
+extern UINTN ScreenW;
+extern UINTN ScreenH;
+
+extern BOOLEAN AllowGraphicsMode;
+
+extern EG_PIXEL StdBackgroundPixel;
+extern EG_PIXEL MenuBackgroundPixel;
 
 EFI_STATUS SwitchToGraphics (VOID);
 
-EG_PIXEL FontComplement (VOID);
-
 BOOLEAN ReadAllKeyStrokes (VOID);
-BOOLEAN CheckError (
-    IN EFI_STATUS  Status,
-    IN CHAR16     *where
-);
-BOOLEAN CheckFatalError (
-    IN EFI_STATUS  Status,
-    IN CHAR16     *where
-);
-
-UINTN GetLumIndex (
-    UINTN PixelR,
-    UINTN PixelG,
-    UINTN PixelB
-);
+BOOLEAN CheckError (IN EFI_STATUS Status, IN CHAR16 *where);
+BOOLEAN CheckFatalError (IN EFI_STATUS Status, IN CHAR16 *where);
 
 VOID InitScreen (VOID);
 VOID SetupScreen (VOID);
-VOID PauseForKey (VOID);
-VOID FixIconScale (VOID);
-VOID RefitDeadLoop (VOID);
-VOID TerminateScreen (VOID);
-VOID PrepareBlankLine (VOID);
-VOID FinishExternalScreen (VOID);
-VOID HaltSeconds (UINTN Seconds);
-VOID PauseSeconds (UINTN Seconds);
 VOID BeginTextScreen (IN CHAR16 *Title);
-VOID DrawScreenHeader (IN CHAR16 *Title);
-VOID BltClearScreen (IN BOOLEAN ShowBanner);
-VOID SwitchToText (IN BOOLEAN CursorEnabled);
 VOID FinishTextScreen (IN BOOLEAN WaitAlways);
+VOID BeginExternalScreen (IN BOOLEAN UseGraphicsMode, IN CHAR16 *Title);
+VOID FinishExternalScreen (VOID);
+VOID TerminateScreen (VOID);
+VOID DrawScreenHeader (IN CHAR16 *Title);
+VOID EndlessIdleLoop (VOID);
+VOID PrintUglyText (IN CHAR16 *Text, UINTN PositionCode);
+VOID PauseForKey (VOID);
+VOID PauseSeconds (UINTN Seconds);
+VOID SwitchToText (IN BOOLEAN CursorEnabled);
 VOID SwitchToGraphicsAndClear (IN BOOLEAN ShowBanner);
-VOID BltImage (
-    IN EG_IMAGE *Image,
-    IN UINTN     XPos,
-    IN UINTN     YPos
-);
+VOID BltClearScreen (IN BOOLEAN ShowBanner);
+VOID BltImage( IN EG_IMAGE *Image, IN UINTN XPos, IN UINTN YPos);
 VOID BltImageAlpha (
     IN EG_IMAGE *Image,
     IN UINTN     XPos,
     IN UINTN     YPos,
     IN EG_PIXEL *BackgroundPixel
 );
-VOID BltImageCompositeAny (
+VOID BltImageCompositeBadge (
     IN EG_IMAGE *BaseImage,
     IN EG_IMAGE *TopImage,
     IN EG_IMAGE *BadgeImage,
     IN UINTN     XPos,
     IN UINTN     YPos
 );
-VOID BeginExternalScreen (
-    IN BOOLEAN  UseGraphicsMode,
-    IN CHAR16  *Title
-);
-VOID PrintUglyText (
-    IN CHAR16 *Text,
-    IN UINTN   PositionCode
-);
+//VOID BltImageComposite (
+//    IN EG_IMAGE *BaseImage,
+//    IN EG_IMAGE *TopImage,
+//    IN UINTN     XPos,
+//    IN UINTN     YPos
+//);
+
 #endif

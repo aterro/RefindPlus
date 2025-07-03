@@ -21,12 +21,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
- /*
-  * Modified for RefindPlus
-  * Copyright (c) 2024 Dayo Akanji (sf.net/u/dakanji/profile)
-  *
-  * Modifications distributed under the preceding terms.
-  */
 
 #ifndef _FSW_EXT2_DISK_H_
 #define _FSW_EXT2_DISK_H_
@@ -47,7 +41,7 @@ typedef __u32   __le32;
 typedef __u64   __le64;
 
 //
-// From Linux kernel, include/linux/ext2_fs.h
+// from Linux kernel, include/linux/ext2_fs.h
 //
 
 /*
@@ -126,7 +120,7 @@ struct ext2_group_desc
 #define EXT2_COMPRBLK_FL                0x00000200 /* One or more compressed clusters */
 #define EXT2_NOCOMP_FL                  0x00000400 /* Do not compress */
 #define EXT2_ECOMPR_FL                  0x00000800 /* Compression error */
-/* End compression flags --- maybe not all used */
+/* End compression flags --- maybe not all used */      
 #define EXT2_BTREE_FL                   0x00001000 /* btree format dir */
 #define EXT2_INDEX_FL                   0x00001000 /* hash-indexed directory */
 #define EXT2_IMAGIC_FL                  0x00002000 /* AFS directory */
@@ -232,13 +226,13 @@ struct ext2_super_block {
      *
      * Note: the difference between the compatible feature set and
      * the incompatible feature set is that if there is a bit set
-     * in the incompatible feature set that the kernel does not
+     * in the incompatible feature set that the kernel doesn't
      * know about, it should refuse to mount the filesystem.
-     *
-     * e2fsck's requirements are more strict; if it does not know
+     * 
+     * e2fsck's requirements are more strict; if it doesn't know
      * about a feature in either the compatible or incompatible
      * feature set, it must abort and not try to meddle with
-     * things it does not understand...
+     * things it doesn't understand...
      */
     __le32  s_first_ino;            /* First non-reserved inode */
     __le16  s_inode_size;           /* size of inode structure */

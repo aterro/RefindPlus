@@ -34,14 +34,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 /*
- * Modifications for rEFInd Copyright (c) 2012-2023 Roderick W. Smith
+ * Modifications copyright (c) 2012-2021 Roderick W. Smith
  *
  * Modifications distributed under the terms of the GNU General Public
  * License (GPL) version 3 (GPLv3), or (at your option) any later version.
  */
 /*
  * Modified for RefindPlus
- * Copyright (c) 2020-2023 Dayo Akanji (sf.net/u/dakanji/profile)
+ * Copyright (c) 2020-2021 Dayo Akanji (sf.net/u/dakanji/profile)
  *
  * Modifications distributed under the preceding terms.
  */
@@ -57,39 +57,22 @@
 #endif
 #include "global.h"
 
-// Return values for IsValidLoader()
-//#define LOADER_TYPE_INVALID 0
-//#define LOADER_TYPE_EFI     1
-//#define LOADER_TYPE_GZIP    2
+#ifndef EFI_OS_INDICATIONS_BOOT_TO_FW_UI
+#define EFI_OS_INDICATIONS_BOOT_TO_FW_UI 0x0000000000000001ULL
+#endif
 
-EFI_STATUS RebootIntoFirmware (VOID);
-EFI_STATUS StartEFIImage (
-    IN   REFIT_VOLUME  *Volume,
-    IN   CHAR16        *Filename,
-    IN   CHAR16        *LoadOptions,
-    IN   CHAR16        *ImageTitle,
-    IN   CHAR8          OSType,
-    IN   BOOLEAN        Verbose,
-    IN   BOOLEAN        IsDriver,
-    OUT  EFI_HANDLE    *NewImageHandle OPTIONAL
-);
-EFI_STATUS ConstructBootEntry (
-    EFI_HANDLE  *TargetVolume,
-    CHAR16      *Loader,
-    CHAR16      *Label,
-    CHAR8      **Entry,
-    UINTN       *Size
-);
-
-BOOLEAN IsValidLoader (EFI_FILE_PROTOCOL *RootDir, CHAR16 *FileName);
-
-VOID StartTool (IN LOADER_ENTRY *Entry);
-VOID RebootIntoLoader (LOADER_ENTRY *Entry);
-VOID StartLoader (
-    IN LOADER_ENTRY *Entry,
-    IN CHAR16       *SelectionName,
-    IN BOOLEAN       TrustSynced
-);
+EFI_STATUS StartEFIImage(IN REFIT_VOLUME *Volume,
+                         IN CHAR16 *Filename,
+                         IN CHAR16 *LoadOptions,
+                         IN CHAR16 *ImageTitle,
+                         IN CHAR8 OSType,
+                         IN BOOLEAN Verbose,
+                         IN BOOLEAN IsDriver);
+BOOLEAN IsValidLoader(EFI_FILE *RootDir, CHAR16 *FileName);
+EFI_STATUS RebootIntoFirmware(VOID);
+VOID StartLoader(LOADER_ENTRY *Entry, CHAR16 *SelectionName);
+VOID StartTool(IN LOADER_ENTRY *Entry);
+VOID RebootIntoLoader(LOADER_ENTRY *Entry);
 
 #endif
 

@@ -24,15 +24,83 @@
  */
 /*
  * Modified for RefindPlus
- * Copyright (c) 2021-2024 Dayo Akanji (sf.net/u/dakanji/profile)
+ * Copyright (c) 2021 Dayo Akanji (sf.net/u/dakanji/profile)
  *
  * Modifications distributed under the preceding terms.
  */
 
-#include "lodepng.h"
-#include "../BootMaster/rp_funcs.h"
+#include "global.h"
 #include "../BootMaster/screenmgt.h"
-#include "../include/refit_call_wrapper.h"
+#include "lodepng.h"
+
+// EFI's equivalent of realloc requires the original buffer's size as an
+// input parameter, which the standard libc realloc does not require. Thus,
+// I've modified lodepng_malloc() to allocate more memory to store this data,
+// and lodepng_realloc() can then read it when required. Because the size is
+// stored at the start of the allocated area, these functions are NOT
+// interchangeable with the standard EFI functions; memory allocated via
+// lodepng_malloc() should be freed via lodepng_free(), and myfree() should
+// NOT be used with memory allocated via AllocatePool() or AllocateZeroPool()!
+
+void* lodepng_malloc(size_t size) {
+   void *ptr;
+
+   ptr = AllocateZeroPool(size + sizeof (size_t));
+   if (ptr) {
+      *(size_t *) ptr = size;
+      return ((size_t *) ptr) + 1;
+   } else {
+      return NULL;
+   }
+} // void* lodepng_malloc()
+
+void lodepng_free (void *ptr) {
+   if (ptr) {
+      ptr = (void *) (((size_t *) ptr) - 1);
+      FreePool(ptr);
+   }
+} // void lodepng_free()
+
+static size_t report_size(void *ptr) {
+   if (ptr)
+      return * (((size_t *) ptr) - 1);
+   else
+      return 0;
+} // size_t report_size()
+
+void* lodepng_realloc(void *ptr, size_t new_size) {
+   size_t *new_pool;
+   size_t old_size;
+
+   new_pool = lodepng_malloc(new_size);
+   if (new_pool && ptr) {
+      old_size = report_size(ptr);
+      CopyMem(new_pool, ptr, (old_size < new_size) ? old_size : new_size);
+   }
+   return new_pool;
+} // lodepng_realloc()
+
+// Finds length of ASCII string, which MUST be NULL-terminated.
+int MyStrlen(const char *InString) {
+   int Length = 0;
+
+   if (InString) {
+      while (InString[Length] != '\0')
+         Length++;
+   }
+   return Length;
+} // int MyStrlen()
+
+VOID *MyMemSet(VOID *s, int c, size_t n) {
+    // DA-TAG: Changed order of params
+    SetMem(s, n, c);
+    return s;
+}
+
+VOID *MyMemCpy(void *__restrict __dest, const void *__restrict __src, size_t __n) {
+    CopyMem(__dest, __src, __n);
+    return __dest;
+}
 
 typedef struct _lode_color {
    UINT8 red;
@@ -41,154 +109,43 @@ typedef struct _lode_color {
    UINT8 alpha;
 } lode_color;
 
+EG_IMAGE * egDecodePNG(IN UINT8 *FileData, IN UINTN FileDataLength, IN UINTN IconSize, IN BOOLEAN WantAlpha) {
+   EG_IMAGE *NewImage = NULL;
+   unsigned Error, Width, Height;
+   EG_PIXEL *PixelData;
+   lode_color *LodeData;
+   UINTN i;
 
-static
-size_t report_size (
-    VOID *ptr
-) {
-    if (!ptr) {
-        return 0;
-    }
+   Error = lodepng_decode_memory((unsigned char **) &PixelData, &Width, &Height, (unsigned char*) FileData,
+                                 (size_t) FileDataLength, LCT_RGBA, 8);
 
-    return * (((size_t *) ptr) - 1);
-} // static size_t report_size()
+   if (Error) {
+      return NULL;
+   }
 
-// EFI's equivalent of realloc requires the original buffer's size as an
-// input parameter, which the standard libc realloc does not require. Thus,
-// I've modified lodepng_refit_malloc() to allocate more memory to store this data,
-// and lodepng_refit_realloc() can then read it when required. Because the size is
-// stored at the start of the allocated area, these functions are NOT
-// interchangeable with the standard EFI functions; memory allocated via
-// lodepng_refit_malloc() should be freed via lodepng_refit_free(), and myfree() should
-// NOT be used with memory allocated via AllocatePool() or AllocateZeroPool()!
-VOID * lodepng_refit_malloc (
-    size_t size
-) {
-    VOID *ptr;
+   // allocate image structure and buffer
+   NewImage = egCreateImage(Width, Height, WantAlpha);
+   if (NewImage == NULL) {
+       return NULL;
+   }
+   if (NewImage->Width != Width || NewImage->Height != Height) {
+       // Should never happen; just being paranoid.
+       egFreeImage(NewImage);
+       return NULL;
+   }
 
-    ptr = AllocateZeroPool(size + sizeof (size_t));
-    if (!ptr) {
-        return NULL;
-    }
+   LodeData = (lode_color *) PixelData;
 
-    *(size_t *) ptr = size;
+   // Annoyingly, EFI and LodePNG use different ordering of RGB values in
+   // their pixel data representations, so we've got to adjust them.
+   for (i = 0; i < (NewImage->Height * NewImage->Width); i++) {
+      NewImage->PixelData[i].r = LodeData[i].red;
+      NewImage->PixelData[i].g = LodeData[i].green;
+      NewImage->PixelData[i].b = LodeData[i].blue;
+      if (WantAlpha)
+         NewImage->PixelData[i].a = LodeData[i].alpha;
+   }
+   lodepng_free(PixelData);
 
-    return ((size_t *) ptr) + 1;
-} // VOID * lodepng_refit_malloc()
-
-VOID lodepng_refit_free (
-    VOID *ptr
-) {
-    if (ptr) {
-        ptr = (VOID *) (((size_t *) ptr) - 1);
-        MY_FREE_POOL(ptr);
-    }
-} // VOID lodepng_refit_free()
-
-VOID * lodepng_refit_realloc (
-    VOID   *ptr,
-    size_t  new_size
-) {
-    size_t *new_pool;
-    size_t  old_size;
-
-    new_pool = lodepng_refit_malloc (new_size);
-    if (new_pool && ptr) {
-        old_size = report_size (ptr);
-        REFIT_CALL_3_WRAPPER(
-            gBS->CopyMem, new_pool,
-            ptr, (old_size < new_size) ? old_size : new_size
-        );
-    }
-
-    return new_pool;
-} // VOID * lodepng_refit_realloc()
-
-// DA-TAG: Investigate This
-//         Why does this live here?
-//         Only used in nanojpeg.c
-VOID * MyMemSet (
-    VOID   *s,
-    int     c,
-    size_t  n
-) {
-    REFIT_CALL_3_WRAPPER(
-        gBS->SetMem, s,
-        c, n
-    );
-
-    return s;
-} // VOID * MyMemSet()
-
-// DA-TAG: Investigate This
-//         Why does this live here?
-//         Only used in nanojpeg.c
-VOID * MyMemCpy (
-    VOID   *__restrict __dest,
-    VOID   *__restrict __src,
-    size_t  __n
-) {
-    REFIT_CALL_3_WRAPPER(
-        gBS->CopyMem, __dest,
-        __src, __n
-    );
-
-    return __dest;
-} // VOID * MyMemCpy
-
-EG_IMAGE * egDecodePNG (
-    IN UINT8   *FileData,
-    IN UINTN    FileDataLength,
-    IN UINTN    IconSize,
-    IN BOOLEAN  WantAlpha
-) {
-    unsigned    Error;
-    unsigned    Width;
-    unsigned    Height;
-    lode_color *LodeData;
-    EG_IMAGE   *NewImage;
-    EG_PIXEL   *PixelData;
-    UINTN       i;
-
-    Error = lodepng_decode_memory (
-        (unsigned char **) &PixelData,
-        &Width,
-        &Height,
-        (unsigned char *) FileData,
-        (size_t) FileDataLength,
-        LCT_RGBA, 8
-    );
-    if (Error) {
-        return NULL;
-    }
-
-    // Allocate image structure and buffer
-    NewImage = egCreateImage (Width, Height, WantAlpha);
-    if (NewImage == NULL) {
-        return NULL;
-    }
-
-    if (NewImage->Width != Width || NewImage->Height != Height) {
-        // Should never happen ... just being paranoid.
-        MY_FREE_IMAGE(NewImage);
-
-        return NULL;
-    }
-
-    LodeData = (lode_color *) PixelData;
-
-    // UEFI and LodePNG use different ordering of RGB values in
-    // their pixel data representations, so we must adjust them.
-    for (i = 0; i < (NewImage->Height * NewImage->Width); i++) {
-        NewImage->PixelData[i].r = LodeData[i].red;
-        NewImage->PixelData[i].g = LodeData[i].green;
-        NewImage->PixelData[i].b = LodeData[i].blue;
-
-        if (WantAlpha) {
-            NewImage->PixelData[i].a = LodeData[i].alpha;
-        }
-    }
-    lodepng_refit_free (PixelData);
-
-    return NewImage;
+   return NewImage;
 } // EG_IMAGE * egDecodePNG()

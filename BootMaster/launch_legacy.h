@@ -1,6 +1,6 @@
 /*
  * BootMaster/launch_legacy.h
- * Functions related to Legacy BIOS booting
+ * Functions related to Legacy (BIOS) booting
  *
  * Copyright (c) 2006 Christoph Pfisterer
  * All rights reserved.
@@ -34,22 +34,17 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 /*
- * Modifications for rEFInd Copyright (c) 2012-2020 Roderick W. Smith
+ * Modifications copyright (c) 2012-2020 Roderick W. Smith
  *
  * Modifications distributed under the terms of the GNU General Public
  * License (GPL) version 3 (GPLv3), a copy of which must be distributed
  * with this source code or binaries made from it.
  *
  */
-/*
- * Modified for RefindPlus
- * Copyright (c) 2020-2023 Dayo Akanji (sf.net/u/dakanji/profile)
- *
- * Modifications distributed under the preceding terms.
- */
 
 #include "global.h"
 
+VOID ScanShell(VOID);
 VOID StartLegacy(IN LEGACY_ENTRY *Entry, IN CHAR16 *SelectionName);
 VOID StartLegacyUEFI(LEGACY_ENTRY *Entry, CHAR16 *SelectionName);
 VOID ScanLegacyDisc(VOID);

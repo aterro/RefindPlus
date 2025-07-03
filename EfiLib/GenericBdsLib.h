@@ -12,6 +12,7 @@ http://opensource.org/licenses/bsd-license.php.
 
 THE PROGRAM IS DISTRIBUTED UNDER THE BSD LICENSE ON AN "AS IS" BASIS,
 WITHOUT WARRANTIES OR REPRESENTATIONS OF ANY KIND, EITHER EXPRESS OR IMPLIED.
+
 **/
 
 #ifndef _GENERIC_BDS_LIB_H_
@@ -251,7 +252,7 @@ BdsLibLoadDrivers (
 
   @param  BdsCommonOptionList   The header of the option list base on the variable
                                 VariableName.
-  @param  VariableName          An UEFI Variable name indicate the BootOrder or
+  @param  VariableName          An EFI Variable name indicate the BootOrder or
                                 DriverOrder.
 
   @retval EFI_SUCCESS           Successfully created the boot option or driver option
@@ -266,15 +267,15 @@ BdsLibBuildOptionFromVar (
   );
 
 /**
-  This function reads the UEFI variable (VendorGuid/Name) and returns a dynamically allocated
+  This function reads the EFI variable (VendorGuid/Name) and returns a dynamically allocated
   buffer and the size of the buffer. If it fails, return NULL.
 
-  @param  Name                  The string part of the  UEFI variable name.
-  @param  VendorGuid            The GUID part of the UEFI variable name.
-  @param  VariableSize          Returns the size of the UEFI variable that was read.
+  @param  Name                  The string part of the  EFI variable name.
+  @param  VendorGuid            The GUID part of the EFI variable name.
+  @param  VariableSize          Returns the size of the EFI variable that was read.
 
   @return                       Dynamically allocated memory that contains a copy
-                                of the UEFI variable. The caller is responsible for
+                                of the EFI variable. The caller is responsible for
                                 freeing the buffer.
   @retval NULL                  The variable was not read.
 
@@ -311,7 +312,7 @@ BdsLibGetVariableAndSize (
 
   @param  BdsCommonOptionList   The header of the boot#### or driver#### option
                                 link list.
-  @param  VariableName          UEFI Variable name, indicates if it is boot#### or
+  @param  VariableName          EFI Variable name, indicates if it is boot#### or
                                 driver####.
 
   @retval BDS_COMMON_OPTION     The option that was created.
@@ -560,7 +561,7 @@ BdsAddNonExistingLegacyBootOptions (
   @retval EFI_SUCCESS           The boot devices were added successfully.
   @retval EFI_NOT_FOUND         The legacy boot devices are not found.
   @retval EFI_OUT_OF_RESOURCES  Memory or storage is not enough.
-  @retval EFI_DEVICE_ERROR      Failed to add the legacy device boot order into UEFI variable
+  @retval EFI_DEVICE_ERROR      Failed to add the legacy device boot order into EFI variable
                                 because of a hardware error.
 **/
 EFI_STATUS
@@ -585,12 +586,12 @@ BdsRefreshBbsTableForBoot (
   );
 
 /**
-  Delete the Boot Option from UEFI Variable.
-  The BootOrder Array is also updated.
+  Delete the Boot Option from EFI Variable. The Boot Order Arrray
+  is also updated.
 
   @param OptionNumber    The number of Boot options wanting to be deleted.
-  @param BootOrder       The BootOrder array.
-  @param BootOrderSize   The size of the BootOrder Array.
+  @param BootOrder       The Boot Order array.
+  @param BootOrderSize   The size of the Boot Order Array.
 
   @retval  EFI_SUCCESS           The Boot Option Variable was found and removed.
   @retval  EFI_UNSUPPORTED       The Boot Option Variable store was inaccessible.

@@ -214,7 +214,5 @@ uint64_t xxh64_digest(const struct xxh64_state *state)
 	h64 *= PRIME64_3;
 	h64 ^= h64 >> 32;
 
-	// Intentional: 64-bit unsigned wraparound for hash mixing
-    /* coverity[return_overflow: SUPPRESS] */
-    return h64;
+	return h64;
 }

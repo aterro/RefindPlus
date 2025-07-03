@@ -33,12 +33,6 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-/*
- * Modified for RefindPlus
- * Copyright (c) 2025 Dayo Akanji (sf.net/u/dakanji/profile)
- *
- * Modifications distributed under the preceding terms.
- */
 
 #include "gptsync.h"
 
@@ -372,7 +366,7 @@ UINTN detect_mbrtype_fs(UINT64 partlba, UINTN *parttype, CHARN **fsname)
 
         score = 0;
         // boot jump
-        if ((sector[0] == 0xEB && sector[2] == 0x90) ||
+        if ((sector[0] == 0xEB && sector[2] == 0x90) || 
             sector[0] == 0xE9)
             score++;
         // boot signature
@@ -409,12 +403,10 @@ UINTN detect_mbrtype_fs(UINT64 partlba, UINTN *parttype, CHARN **fsname)
             if (clustercount < 4085) {
                 *parttype = 0x01;
                 *fsname = STR("FAT12");
-            }
-            else if (clustercount < 65525) {
+            } else if (clustercount < 65525) {
                 *parttype = 0x0e;
                 *fsname = STR("FAT16");
-            }
-            else {
+            } else {
                 *parttype = 0x0c;
                 *fsname = STR("FAT32");
             }
@@ -425,9 +417,8 @@ UINTN detect_mbrtype_fs(UINT64 partlba, UINTN *parttype, CHARN **fsname)
 
     // READ sector 2 / offset 1K
     status = read_sector(partlba + 2, sector);
-    if (status != 0) {
+    if (status != 0)
         return status;
-    }
 
     // detect HFS+
     signature = *((UINT16 *)(sector));
@@ -438,13 +429,10 @@ UINTN detect_mbrtype_fs(UINT64 partlba, UINTN *parttype, CHARN **fsname)
         else
             *fsname = STR("HFS Standard");
         return 0;
-    }
-    else {
-        if (signature == 0x2B48) {
-            *parttype = 0xaf;
-            *fsname = STR("HFS Extended (HFS+)");
-            return 0;
-        }
+    } else if (signature == 0x2B48) {
+        *parttype = 0xaf;
+        *fsname = STR("HFS Extended (HFS+)");
+        return 0;
     }
 
     // detect ext2/ext3/ext4

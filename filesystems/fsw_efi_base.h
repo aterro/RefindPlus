@@ -38,11 +38,11 @@
 #ifndef _FSW_EFI_BASE_H_
 #define _FSW_EFI_BASE_H_
 
-// If its EDK2 UEFI Toolkit
+// If its EDK2 EFI Toolkit
 #ifdef __MAKEWITH_TIANO
 #include "fsw_efi_edk2_base.h"
 #else
-// Intel UEFI Toolkit
+// Intel EFI Toolkit
 #include <efi.h>
 #include <efilib.h>
 #endif
