@@ -762,6 +762,7 @@ UINTN RunGenericMenu (
             if (StyleFunc != MainMenuStyle && pdGetState().Press) {
                 // prevent user from getting stuck on submenus
                 // (the only one currently reachable without a keyboard is the about screen)
+                gSuppressPointerDraw = FALSE;
                 MenuExit = MENU_EXIT_ENTER;
                 break;
             }
@@ -898,6 +899,8 @@ UINTN RunGenericMenu (
                     if (DrawSelection) {
                         DrawSelection        = FALSE;
                         State.PaintSelection = TRUE;
+                        gSuppressPointerDraw = FALSE;
+                        pdDraw;
                     }
 
                     break;
