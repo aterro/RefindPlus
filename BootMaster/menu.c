@@ -899,8 +899,9 @@ UINTN RunGenericMenu (
                     if (DrawSelection) {
                         DrawSelection        = FALSE;
                         State.PaintSelection = TRUE;
-                        gSuppressPointerDraw = FALSE;
-                        pdDraw();
+                         if (PointerState.Press) {
+                         gSuppressPointerDraw = FALSE;
+                         pdDraw();}
                     }
 
                     break;
