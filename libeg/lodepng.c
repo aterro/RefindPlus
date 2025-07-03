@@ -76,31 +76,6 @@ define them in your own project's source files without needing to change
 lodepng source code. Do not forget to remove "static" if you copypaste them
 from here.*/
 
-#ifdef LODEPNG_COMPILE_ALLOCATORS
-static void* lodepng_malloc(size_t size) {
-#ifdef LODEPNG_MAX_ALLOC
-  if(size > LODEPNG_MAX_ALLOC) return 0;
-#endif
-  return malloc(size);
-}
-
-/* NOTE: when realloc returns NULL, it leaves the original memory untouched */
-static void* lodepng_realloc(void* ptr, size_t new_size) {
-#ifdef LODEPNG_MAX_ALLOC
-  if(new_size > LODEPNG_MAX_ALLOC) return 0;
-#endif
-  return realloc(ptr, new_size);
-}
-
-static void lodepng_free(void* ptr) {
-  free(ptr);
-}
-#else /*LODEPNG_COMPILE_ALLOCATORS*/
-/* TODO: support giving additional void* payload to the custom allocators */
-void* lodepng_malloc(size_t size);
-void* lodepng_realloc(void* ptr, size_t new_size);
-void lodepng_free(void* ptr);
-#endif /*LODEPNG_COMPILE_ALLOCATORS*/
 
 /* convince the compiler to inline a function, for use when this measurably improves performance */
 /* inline is not available in C90, but use it when supported by the compiler */
@@ -131,20 +106,6 @@ to something as fast. */
 const int32_t _fltused = 0;
 
 #define LODEPNG_MAX_ALLOC ((size_t)256*1024*1024)
-
-void* lodepng_malloc(size_t size) {
-  if (size > LODEPNG_MAX_ALLOC) {
-    return NULL;
-  }
-
-  return AllocatePool(size);
-}
-
-void lodepng_free(void* ptr) {
-  if (ptr != NULL) {
-    FreePool(ptr);
-  }
-}
 
 static void* lodepng_reallocate(void* ptr, size_t old_size, size_t new_size) {
   (void)old_size;

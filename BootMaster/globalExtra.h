@@ -11,7 +11,7 @@
 #define LOG_THREE_STAR_END   8
 #define LOG_BLANK_LINE_SEP   9
 
-VOID
+VOID EFIAPI
 DebugLog (
     IN        INTN  DebugMode,
     IN  const CHAR8 *FormatString, ...

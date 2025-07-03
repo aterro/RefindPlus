@@ -70,7 +70,7 @@ VOID MergeStrings (IN OUT CHAR16 **First, IN CHAR16 *Second, CHAR16 AddChar);
 VOID MergeWords (CHAR16 **MergeTo, CHAR16 *InString, CHAR16 AddChar);
 VOID MyUnicodeStrToAsciiStr (
     IN  CHAR16 *StrCHAR16,
-    OUT CHAR8  ArrCHAR8[255]
+    OUT CHAR8  ArrCHAR8[256]
 );
 
 UINTN NumCharsInCommon (IN CHAR16* String1, IN CHAR16* String2);

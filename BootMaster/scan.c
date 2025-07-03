@@ -147,12 +147,12 @@ static REFIT_MENU_ENTRY MenuEntryFirmware = {
     1, 0, 0,
     NULL, NULL, NULL
 };
-static REFIT_MENU_ENTRY MenuEntryHiddenTags = {
+/*static REFIT_MENU_ENTRY MenuEntryHiddenTags = {
     L"Manage Hidden Tags",
     TAG_HIDDEN,
     1, 0, 0, NULL,
     NULL, NULL
-};
+};*/
 static REFIT_MENU_ENTRY MenuEntryInstall = {
     L"Install RefindPlus",
     TAG_INSTALL,
@@ -2762,7 +2762,7 @@ VOID ScanForTools (VOID) {
 
                 break;
 
-            case TAG_HIDDEN:
+/*            case TAG_HIDDEN:
                 if (GlobalConfig.HiddenTags) {
                     FoundTool = TRUE;
                     TempMenuEntry        = CopyMenuEntry (&MenuEntryHiddenTags);
@@ -2788,7 +2788,7 @@ VOID ScanForTools (VOID) {
                 #endif
 
                 break;
-
+*/
             case TAG_FIRMWARE:
                 if (EfivarGetRaw (
                     &GlobalGuid,

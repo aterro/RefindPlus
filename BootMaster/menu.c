@@ -45,7 +45,7 @@
  *
  * Modifications distributed under the preceding terms.
  */
-
+#include "pointer.h"
 #include "global.h"
 #include "screenmgt.h"
 #include "lib.h"
