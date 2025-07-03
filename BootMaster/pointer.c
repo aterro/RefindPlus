@@ -43,7 +43,8 @@ EFI_ABSOLUTE_POINTER_PROTOCOL **APointerProtocol   = NULL;
 EFI_SIMPLE_POINTER_PROTOCOL   **SPointerProtocol   = NULL;
 
 BOOLEAN PointerAvailable = FALSE;
-
+BOOLEAN gSuppressPointerDraw = TRUE;
+//BOOLEAN gPointerActuallyMoved = FALSE;
 UINTN LastXPos = 0, LastYPos = 0;
 EG_IMAGE* MouseImage = NULL;
 EG_IMAGE* Background = NULL;
@@ -344,12 +345,17 @@ EFI_STATUS pdUpdateState() {
                 State.Y = TargetY;
             }
 
-            State.Holding = SPointerState.LeftButton;
+            State.Holding = (SPointerState.LeftButton || SPointerState.RightButton);
         }
     }
 
     State.Press = (LastHolding && !State.Holding);
-
+    if (State.X != LastXPos || State.Y != LastYPos) { // Mouse has moved
+        //gPointerActuallyMoved = TRUE; // Set the flag to TRUE
+        if (gSuppressPointerDraw) { // If pointer was suppressed (hidden)
+            gSuppressPointerDraw = FALSE; // Show the pointer
+        }
+    }
     return Status;
 #endif
 }
@@ -365,6 +371,9 @@ POINTER_STATE pdGetState() {
 // Draw the mouse at the current coordinates
 ////////////////////////////////////////////////////////////////////////////////
 VOID pdDraw() {
+    if (gSuppressPointerDraw) {
+        return;
+    }
     if (Background) {
         egFreeImage (Background);
         Background = NULL;

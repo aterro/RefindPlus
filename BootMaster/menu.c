@@ -707,7 +707,9 @@ UINTN RunGenericMenu (
             StyleFunc (Screen, &State, MENU_FUNCTION_PAINT_SELECTION, NULL);
             State.PaintSelection = FALSE;
         }
-        pdDraw();
+        if (!gSuppressPointerDraw) {
+                pdDraw();
+            }
 
         if (WaitForRelease) {
             Status = REFIT_CALL_2_WRAPPER(gST->ConIn->ReadKeyStroke, gST->ConIn, &key);
@@ -750,6 +752,8 @@ UINTN RunGenericMenu (
         Status = REFIT_CALL_2_WRAPPER(gST->ConIn->ReadKeyStroke, gST->ConIn, &key);
 
         if (Status == EFI_SUCCESS) {
+            pdClear(); // hide the pointer when a key is pressed
+            gSuppressPointerDraw      =  TRUE;
             PointerActive      = FALSE;
             DrawSelection      = TRUE;
             TimeSinceKeystroke = 0;
@@ -2752,7 +2756,8 @@ UINTN RunMainMenu (
         MainStyle = MainMenuStyle;
 
         PointerEnabled = PointerActive = pdAvailable();
-        DrawSelection  = !PointerEnabled;
+        if (Screen->TimeoutSeconds > 0) {DrawSelection = !PointerEnabled;}
+        else {DrawSelection = TRUE;}
     }
 
     // Generate this now and keep it around forever, since it is likely to be
