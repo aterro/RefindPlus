@@ -444,7 +444,7 @@ VOID SetBootArgs (VOID) {
     EFI_GUID     AppleGUID  = APPLE_GUID;
     CHAR16      *NameNVRAM  = L"boot-args";
     CHAR16      *BootArg;
-    CHAR8        DataNVRAM[255];
+    CHAR8        DataNVRAM[257];
 
     #if REFIT_DEBUG > 0
     CHAR16  *MsgStr                = NULL;

@@ -349,7 +349,7 @@ EFI_STATUS pdUpdateState() {
         }
     }
 
-    State.Press = (LastHolding && !State.Holding);
+    State.Press = (!LastHolding && State.Holding);
     if (State.X != LastXPos || State.Y != LastYPos) { // Mouse has moved
         //gPointerActuallyMoved = TRUE; // Set the flag to TRUE
         if (gSuppressPointerDraw) { // If pointer was suppressed (hidden)
