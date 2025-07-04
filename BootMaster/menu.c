@@ -2760,8 +2760,9 @@ UINTN RunMainMenu (
         MainStyle = MainMenuStyle;
 
         PointerEnabled = PointerActive = pdAvailable();
-        if (Screen->TimeoutSeconds > 0) {DrawSelection = !PointerEnabled;}
-        else {DrawSelection = TRUE;}
+//        if (Screen->TimeoutSeconds > 0) {DrawSelection = !PointerEnabled;}
+//        else {DrawSelection = TRUE;}
+        DrawSelection = TRUE;
     }
 
     // Generate this now and keep it around forever, since it is likely to be
