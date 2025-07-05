@@ -58,7 +58,7 @@
 #include "icns.h"
 #include "scan.h"
 #include "../include/refit_call_wrapper.h"
-
+#include <Library/UefiBootServicesTableLib.h>
 #include "../include/egemb_back_selected_small.h"
 #include "../include/egemb_back_selected_big.h"
 #include "../include/egemb_arrow_left.h"
@@ -480,151 +480,6 @@ VOID IdentifyRows (
     }
 } // static VOID IdentifyRows()
 
-// Blank the screen, wait for a keypress or pointer event, and restore banner/background.
-// Screen may still require redrawing of text and icons on return.
-// TODO: Support more sophisticated screen savers, such as power-saving
-// mode and dynamic images.
-static
-VOID SaveScreen (VOID) {
-    UINTN  retval;
-    UINTN  ColourIndex;
-    UINT64 TimeWait;
-    UINT64 BaseTimeWait = 1875;
-
-    #if REFIT_DEBUG > 0
-    CHAR16 *MsgStr = NULL;
-
-    MsgStr = StrDuplicate (L"Threshold Exceeded");
-    LOG(3, LOG_LINE_NORMAL,  L"%s", MsgStr);
-    MsgLog ("INFO: %s ...", MsgStr);
-    MyFreePool (&MsgStr);
-
-    MsgStr = StrDuplicate (L"Start Screensaver");
-    LOG(2, LOG_LINE_THIN_SEP, L"%s", MsgStr);
-    MsgLog ("%s", MsgStr);
-    MsgLog ("\n");
-    MyFreePool (&MsgStr);
-    #endif
-
-    EG_PIXEL OUR_COLOUR;
-    EG_PIXEL COLOUR_01 = { 0, 51, 51, 0 };
-    EG_PIXEL COLOUR_02 = { 0, 102, 102, 0 };
-    EG_PIXEL COLOUR_03 = { 0, 153, 153, 0 };
-    EG_PIXEL COLOUR_04 = { 0, 204, 204, 0 };
-    EG_PIXEL COLOUR_05 = { 0, 255, 255, 0 };
-    EG_PIXEL COLOUR_06 = { 51, 0, 204, 0 };
-    EG_PIXEL COLOUR_07 = { 51, 51, 153, 0 };
-    EG_PIXEL COLOUR_08 = { 51, 102, 102, 0 };
-    EG_PIXEL COLOUR_09 = { 51, 153, 51, 0 };
-    EG_PIXEL COLOUR_10 = { 51, 204, 0, 0 };
-    EG_PIXEL COLOUR_11 = { 51, 255, 51, 0 };
-    EG_PIXEL COLOUR_12 = { 102, 0, 102, 0 };
-    EG_PIXEL COLOUR_13 = { 102, 51, 153, 0 };
-    EG_PIXEL COLOUR_14 = { 102, 102, 204, 0 };
-    EG_PIXEL COLOUR_15 = { 102, 153, 255, 0 };
-    EG_PIXEL COLOUR_16 = { 102, 204, 204, 0 };
-    EG_PIXEL COLOUR_17 = { 102, 255, 153, 0 };
-    EG_PIXEL COLOUR_18 = { 153, 0, 102, 0 };
-    EG_PIXEL COLOUR_19 = { 153, 51, 51, 0 };
-    EG_PIXEL COLOUR_20 = { 153, 102, 0, 0 };
-    EG_PIXEL COLOUR_21 = { 153, 153, 51, 0 };
-    EG_PIXEL COLOUR_22 = { 153, 204, 102, 0 };
-    EG_PIXEL COLOUR_23 = { 153, 255, 153, 0 };
-    EG_PIXEL COLOUR_24 = { 204, 0, 204, 0 };
-    EG_PIXEL COLOUR_25 = { 204, 51, 255, 0 };
-    EG_PIXEL COLOUR_26 = { 204, 102, 204, 0 };
-    EG_PIXEL COLOUR_27 = { 204, 153, 153, 0 };
-    EG_PIXEL COLOUR_28 = { 204, 204, 102, 0 };
-    EG_PIXEL COLOUR_29 = { 204, 255, 51, 0 };
-    EG_PIXEL COLOUR_30 = { 255, 0, 0, 0 };
-
-    // Start with COLOUR_01
-    ColourIndex = 0;
-
-    // Start with BaseTimeWait
-    TimeWait = BaseTimeWait;
-    for (;;) {
-        ColourIndex = ColourIndex + 1;
-
-        if (ColourIndex < 1 || ColourIndex > 30) {
-            ColourIndex = 1;
-            TimeWait    = TimeWait * 2;
-
-            if (TimeWait > 120000) {
-                // Reset TimeWait if greater than 2 minutes
-                TimeWait = BaseTimeWait;
-
-                #if REFIT_DEBUG > 0
-                LOG(4, LOG_LINE_NORMAL, L"Reset Timeout");
-                #endif
-            }
-            else {
-                #if REFIT_DEBUG > 0
-                LOG(4, LOG_LINE_NORMAL, L"Extend Timeout");
-                #endif
-            }
-        }
-
-        switch (ColourIndex) {
-            case 1:  OUR_COLOUR = COLOUR_01; break;
-            case 2:  OUR_COLOUR = COLOUR_02; break;
-            case 3:  OUR_COLOUR = COLOUR_03; break;
-            case 4:  OUR_COLOUR = COLOUR_04; break;
-            case 5:  OUR_COLOUR = COLOUR_05; break;
-            case 6:  OUR_COLOUR = COLOUR_06; break;
-            case 7:  OUR_COLOUR = COLOUR_07; break;
-            case 8:  OUR_COLOUR = COLOUR_08; break;
-            case 9:  OUR_COLOUR = COLOUR_09; break;
-            case 10: OUR_COLOUR = COLOUR_10; break;
-            case 11: OUR_COLOUR = COLOUR_11; break;
-            case 12: OUR_COLOUR = COLOUR_12; break;
-            case 13: OUR_COLOUR = COLOUR_13; break;
-            case 14: OUR_COLOUR = COLOUR_14; break;
-            case 15: OUR_COLOUR = COLOUR_15; break;
-            case 16: OUR_COLOUR = COLOUR_16; break;
-            case 17: OUR_COLOUR = COLOUR_17; break;
-            case 18: OUR_COLOUR = COLOUR_18; break;
-            case 19: OUR_COLOUR = COLOUR_19; break;
-            case 20: OUR_COLOUR = COLOUR_20; break;
-            case 21: OUR_COLOUR = COLOUR_21; break;
-            case 22: OUR_COLOUR = COLOUR_22; break;
-            case 23: OUR_COLOUR = COLOUR_23; break;
-            case 24: OUR_COLOUR = COLOUR_24; break;
-            case 25: OUR_COLOUR = COLOUR_25; break;
-            case 26: OUR_COLOUR = COLOUR_26; break;
-            case 27: OUR_COLOUR = COLOUR_27; break;
-            case 28: OUR_COLOUR = COLOUR_28; break;
-            case 29: OUR_COLOUR = COLOUR_29; break;
-            default: OUR_COLOUR = COLOUR_30; break;
-        }
-
-        egClearScreen (&OUR_COLOUR);
-        retval = WaitForInput (TimeWait);
-        if (retval == INPUT_KEY || retval == INPUT_TIMER_ERROR) {
-            break;
-        }
-    } // for
-
-    #if REFIT_DEBUG > 0
-    MsgStr = StrDuplicate (L"Detected Keypress");
-    LOG(3, LOG_LINE_NORMAL,  L"%s", MsgStr);
-    MsgLog ("      %s ... ", MsgStr);
-    MyFreePool (&MsgStr);
-
-    MsgStr = StrDuplicate (L"Ending Screensaver");
-    LOG(2, LOG_THREE_STAR_END, L"%s", MsgStr);
-    MsgLog ("%s", MsgStr);
-    MsgLog ("\n\n");
-    MyFreePool (&MsgStr);
-    #endif
-
-    if (AllowGraphicsMode) {
-        SwitchToGraphicsAndClear (TRUE);
-    }
-
-    ReadAllKeyStrokes();
-} // VOID SaveScreen()
-
 //
 // generic menu function
 //
@@ -639,9 +494,11 @@ UINTN RunGenericMenu (
     BOOLEAN        HaveTimeout        = FALSE;
     BOOLEAN        WaitForRelease     = FALSE;
     UINTN          TimeoutCountdown   = 0;
-    INTN           TimeSinceKeystroke = 0;
+    UINT64         TimeSinceKeystroke = 0;
     INTN           PreviousTime       = -1;
     INTN           CurrentTime;
+
+    UINT64         ElapsCount;
     INTN           ShortcutEntry;
     UINTN          MenuExit;
     UINTN          Item;
@@ -697,6 +554,7 @@ UINTN RunGenericMenu (
     }
 
     while (!MenuExit) {
+
         // update the screen
         pdClear();
         if (State.PaintAll && (GlobalConfig.ScreensaverTime != -1)) {
@@ -710,6 +568,7 @@ UINTN RunGenericMenu (
         if (!gSuppressPointerDraw) {
                 pdDraw();
             }
+
 
         if (WaitForRelease) {
             Status = REFIT_CALL_2_WRAPPER(gST->ConIn->ReadKeyStroke, gST->ConIn, &key);
@@ -780,34 +639,21 @@ UINTN RunGenericMenu (
                 MenuExit = MENU_EXIT_TIMEOUT;
                 break;
             }
-            else if (HaveTimeout || GlobalConfig.ScreensaverTime > 0) {
-                UINTN ElapsCount = 1;
-                UINTN Input      = WaitForInput (1000); // 1s Timeout
-
-                if (Input == INPUT_KEY || Input == INPUT_POINTER) {
-                    continue;
-                }
-                else if (Input == INPUT_TIMEOUT) {
-                    ElapsCount = 10; // always counted as 1s to end of the timeout
+                else if (HaveTimeout || GlobalConfig.ScreensaverTime > 0) {
+                if (WaitForInput(100) != INPUT_TIMEOUT) {
+				continue;
                 }
 
-                TimeSinceKeystroke += ElapsCount;
+                TimeSinceKeystroke += 10;
                 if (HaveTimeout) {
-                    TimeoutCountdown = (TimeoutCountdown > ElapsCount)
-                    ? TimeoutCountdown - ElapsCount
-                    : 0;
-                }
-                else if (GlobalConfig.ScreensaverTime > 0 &&
-                    TimeSinceKeystroke > (GlobalConfig.ScreensaverTime * 10)
-                ) {
-                    SaveScreen();
-                    State.PaintAll     = TRUE;
-                    TimeSinceKeystroke = 0;
+                    TimeoutCountdown = (TimeoutCountdown > 1) ? TimeoutCountdown - 1 : 0;
                 }
             }
             else {
-                WaitForInput (0);
-            } // if/else HaveTimeout
+                if (WaitForInput(0) != INPUT_TIMEOUT) {
+                    continue;
+                }
+            } // if/else HaveTimeout""
 
             continue;
         } // if/else Status == EFI_SUCCESS
