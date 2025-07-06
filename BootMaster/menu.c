@@ -2668,6 +2668,7 @@ UINTN RunMainMenu (
             }
             MenuExit = 0;
         }
+       REFIT_CALL_1_WRAPPER(gBS->Stall, 15000); 
     } // while
 
     if (ChosenEntry) {
