@@ -386,21 +386,7 @@ EFI_STATUS pdUpdateState() {
             gSuppressPointerDraw = FALSE; // Show the pointer
         }
     }
-
-    // Failsafe: If no device reported a new state (Status is still EFI_NOT_READY),
-    // but the pointer system is generally considered active,
-    // force Status to EFI_SUCCESS to keep the pointer visible and prevent external logic
-    // from deactivating the pointer system based on transient "Not Ready" reports.
-    if (Status == EFI_NOT_READY && !gSuppressPointerDraw) {
-        // Ensure pointer coordinates remain within screen bounds, even if no new update occurred
-        if (State.X < 0) State.X = 0;
-        if (State.X >= ScreenW) State.X = ScreenW - 1;
-        if (State.Y < 0) State.Y = 0;
-        if (State.Y >= ScreenH) State.Y = ScreenH - 1;
-        return EFI_SUCCESS;
-    } else {
-        return Status;
-    }
+    return Status;
 #endif
 }
 ////////////////////////////////////////////////////////////////////////////////

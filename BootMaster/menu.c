@@ -650,9 +650,7 @@ UINTN RunGenericMenu (
                 }
             }
             else {
-                if (WaitForInput(0) != INPUT_TIMEOUT) {
-                    continue;
-                }
+                REFIT_CALL_1_WRAPPER(gBS->Stall, 1000);
             } // if/else HaveTimeout""
 
             continue;
