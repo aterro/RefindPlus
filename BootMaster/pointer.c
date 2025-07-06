@@ -44,7 +44,6 @@ EFI_SIMPLE_POINTER_PROTOCOL   **SPointerProtocol   = NULL;
 
 BOOLEAN PointerAvailable = FALSE;
 BOOLEAN gSuppressPointerDraw = TRUE;
-//BOOLEAN gPointerActuallyMoved = FALSE;
 UINTN LastXPos = 0, LastYPos = 0;
 EG_IMAGE* MouseImage = NULL;
 EG_IMAGE* Background = NULL;
@@ -260,6 +259,12 @@ EFI_EVENT pdWaitEvent (UINTN Index) {
 // Gets the current state of all pointer devices and assigns State to
 // the first available device's state
 ////////////////////////////////////////////////////////////////////////////////
+// IMPORTANT: Ensure this declaration is at the top of your pointer.c file,
+// outside any function (e.g., near other global variables like PointerAvailable).
+// This makes LastHolding persist across function calls, which is crucial for State.Press.
+static BOOLEAN LastHolding = FALSE;
+
+
 EFI_STATUS pdUpdateState() {
 #if defined (EFI32) && defined (__MAKEWITH_GNUEFI)
     return EFI_NOT_READY;
@@ -271,95 +276,133 @@ EFI_STATUS pdUpdateState() {
     EFI_STATUS Status = EFI_NOT_READY;
     EFI_ABSOLUTE_POINTER_STATE APointerState;
     EFI_SIMPLE_POINTER_STATE SPointerState;
-    BOOLEAN LastHolding = State.Holding;
+
+    LastHolding = State.Holding;
+
+    State.Holding = FALSE;
+    State.Press = FALSE;
 
     UINTN Index;
-    for (Index = 0; Index < NumAPointerDevices; Index++) {
-        EFI_STATUS PointerStatus = REFIT_CALL_2_WRAPPER(
-            APointerProtocol[Index]->GetState,
-            APointerProtocol[Index],
-            &APointerState
-        );
-        // if new state found and we have not already found a new state
-        if (!EFI_ERROR (PointerStatus) && EFI_ERROR (Status)) {
-            Status = EFI_SUCCESS;
 
-#ifdef EFI32
-            State.X = (UINTN)DivU64x64Remainder (APointerState.CurrentX * ScreenW, APointerProtocol[Index]->Mode->AbsoluteMaxX, NULL);
-            State.Y = (UINTN)DivU64x64Remainder (APointerState.CurrentY * ScreenH, APointerProtocol[Index]->Mode->AbsoluteMaxY, NULL);
-#else
-            State.X = (APointerState.CurrentX * ScreenW) / APointerProtocol[Index]->Mode->AbsoluteMaxX;
-            State.Y = (APointerState.CurrentY * ScreenH) / APointerProtocol[Index]->Mode->AbsoluteMaxY;
-#endif
-            State.Holding = (APointerState.ActiveButtons & EFI_ABSP_TouchActive);
-        }
-    }
-    for (Index = 0; Index < NumSPointerDevices; Index++) {
-        EFI_STATUS PointerStatus = REFIT_CALL_2_WRAPPER(
-            SPointerProtocol[Index]->GetState,
-            SPointerProtocol[Index],
-            &SPointerState
-        );
-        // if new state found and we have not already found a new state
-        if (!EFI_ERROR (PointerStatus) && EFI_ERROR (Status)) {
-            Status = EFI_SUCCESS;
-
-            INT32 TargetX = 0;
-            INT32 TargetY = 0;
-
-#ifdef EFI32
-	    TargetX = State.X + (INTN)DivS64x64Remainder (
-            SPointerState.RelativeMovementX * GlobalConfig.MouseSpeed,
-            SPointerProtocol[Index]->Mode->ResolutionX,
-            NULL
-        );
-            TargetY = State.Y + (INTN)DivS64x64Remainder (
-                SPointerState.RelativeMovementY * GlobalConfig.MouseSpeed,
-                SPointerProtocol[Index]->Mode->ResolutionY,
-                NULL
+    // Outer do-while loop to implement "first active device found, then break" logic from RefindPlus
+    do {
+        for (Index = 0; Index < NumAPointerDevices; Index++) {
+            EFI_STATUS PointerStatus = REFIT_CALL_2_WRAPPER(
+                APointerProtocol[Index]->GetState, // Using APointerProtocol from original
+                APointerProtocol[Index],
+                &APointerState
             );
+            // If new state found (no error)
+            if (!EFI_ERROR (PointerStatus)) {
+                Status = EFI_SUCCESS; // Mark overall status as success due to this active absolute pointer
+
+#ifdef EFI32
+                State.X = (UINTN)DivU64x64Remainder (APointerState.CurrentX * ScreenW, APointerProtocol[Index]->Mode->AbsoluteMaxX, NULL);
+                State.Y = (UINTN)DivU64x64Remainder (APointerState.CurrentY * ScreenH, APointerProtocol[Index]->Mode->AbsoluteMaxY, NULL);
 #else
-            TargetX = State.X + SPointerState.RelativeMovementX *
-                GlobalConfig.MouseSpeed / SPointerProtocol[Index]->Mode->ResolutionX;
-            TargetY = State.Y + SPointerState.RelativeMovementY *
-                GlobalConfig.MouseSpeed / SPointerProtocol[Index]->Mode->ResolutionY;
+                State.X = (APointerState.CurrentX * ScreenW) / APointerProtocol[Index]->Mode->AbsoluteMaxX;
+                State.Y = (APointerState.CurrentY * ScreenH) / APointerProtocol[Index]->Mode->AbsoluteMaxY;
+#endif
+                // Corrected: Accumulate State.Holding using OR
+                State.Holding = State.Holding || (APointerState.ActiveButtons & EFI_ABSP_TouchActive);
+
+                // Found an active absolute pointer, break from this for loop
+                break;
+            }
+        }
+
+        // If an absolute pointer was successfully processed, exit the outer do-while loop
+        if (!EFI_ERROR(Status)) {
+            break;
+        }
+
+        for (Index = 0; Index < NumSPointerDevices; Index++) {
+            EFI_STATUS PointerStatus = REFIT_CALL_2_WRAPPER(
+                SPointerProtocol[Index]->GetState, // Using SPointerProtocol from original
+                SPointerProtocol[Index],
+                &SPointerState
+            );
+            // If new state found (no error)
+            if (!EFI_ERROR (PointerStatus)) {
+                // If a simple pointer has movement or a button press, it should set overall Status to SUCCESS.
+                // If Status is already SUCCESS from an absolute pointer, we don't overwrite it to EFI_NOT_READY.
+                if (EFI_ERROR(Status) || (SPointerState.RelativeMovementX != 0 || SPointerState.RelativeMovementY != 0 || SPointerState.LeftButton || SPointerState.RightButton)) {
+                    Status = EFI_SUCCESS;
+                }
+
+                INT32 TargetX = 0;
+                INT32 TargetY = 0;
+
+#ifdef EFI32
+                TargetX = State.X + (INTN)DivS64x64Remainder (
+                    SPointerState.RelativeMovementX * GlobalConfig.MouseSpeed,
+                    SPointerProtocol[Index]->Mode->ResolutionX,
+                    NULL
+                );
+                TargetY = State.Y + (INTN)DivS64x64Remainder (
+                    SPointerState.RelativeMovementY * GlobalConfig.MouseSpeed,
+                    SPointerProtocol[Index]->Mode->ResolutionY,
+                    NULL
+                );
+#else
+                TargetX = State.X + SPointerState.RelativeMovementX *
+                    GlobalConfig.MouseSpeed / SPointerProtocol[Index]->Mode->ResolutionX;
+                TargetY = State.Y + SPointerState.RelativeMovementY *
+                    GlobalConfig.MouseSpeed / SPointerProtocol[Index]->Mode->ResolutionY;
 #endif
 
-            if (TargetX < 0) {
-                State.X = 0;
-            }
-            else if (TargetX >= ScreenW) {
-                State.X = ScreenW - 1;
-            }
-            else {
-                State.X = TargetX;
-            }
+                if (TargetX < 0) {
+                    State.X = 0;
+                }
+                else if (TargetX >= ScreenW) {
+                    State.X = ScreenW - 1;
+                }
+                else {
+                    State.X = TargetX;
+                }
 
-            if (TargetY < 0) {
-                State.Y = 0;
-            }
-            else if (TargetY >= ScreenH) {
-                State.Y = ScreenH - 1;
-            }
-            else {
-                State.Y = TargetY;
-            }
+                if (TargetY < 0) {
+                    State.Y = 0;
+                }
+                else if (TargetY >= ScreenH) {
+                    State.Y = ScreenH - 1;
+                }
+                else {
+                    State.Y = TargetY;
+                }
 
-            State.Holding = (SPointerState.LeftButton || SPointerState.RightButton);
+                // Corrected: Accumulate State.Holding using OR
+                State.Holding = State.Holding || (SPointerState.LeftButton || SPointerState.RightButton);
+
+                // Found an active simple pointer, break from this for loop
+                break;
+            }
         }
-    }
+    } while (0); // This 'loop' only runs once, implementing the "first active device" logic
 
-    State.Press = (!LastHolding && State.Holding);
+    State.Press = (!LastHolding && State.Holding); // Detects a BUTTON PRESS (button just went down)
     if (State.X != LastXPos || State.Y != LastYPos) { // Mouse has moved
-        //gPointerActuallyMoved = TRUE; // Set the flag to TRUE
         if (gSuppressPointerDraw) { // If pointer was suppressed (hidden)
             gSuppressPointerDraw = FALSE; // Show the pointer
         }
     }
-    return Status;
+
+    // Failsafe: If no device reported a new state (Status is still EFI_NOT_READY),
+    // but the pointer system is generally considered active,
+    // force Status to EFI_SUCCESS to keep the pointer visible and prevent external logic
+    // from deactivating the pointer system based on transient "Not Ready" reports.
+    if (Status == EFI_NOT_READY && !gSuppressPointerDraw) {
+        // Ensure pointer coordinates remain within screen bounds, even if no new update occurred
+        if (State.X < 0) State.X = 0;
+        if (State.X >= ScreenW) State.X = ScreenW - 1;
+        if (State.Y < 0) State.Y = 0;
+        if (State.Y >= ScreenH) State.Y = ScreenH - 1;
+        return EFI_SUCCESS;
+    } else {
+        return Status;
+    }
 #endif
 }
-
 ////////////////////////////////////////////////////////////////////////////////
 // Returns the current pointer state
 ////////////////////////////////////////////////////////////////////////////////
