@@ -54,114 +54,53 @@ POINTER_STATE State;
 // Initialize all pointer devices
 ////////////////////////////////////////////////////////////////////////////////
 VOID pdInitialize() {
-        #if REFIT_DEBUG > 0
-        MsgLog ("Initialise Pointer Devices...\n");
-        #endif
+    pdCleanup();
 
-    pdCleanup(); // just in case
-
-    if (! (GlobalConfig.EnableMouse || GlobalConfig.EnableTouch)) {
-        #if REFIT_DEBUG > 0
-        MsgLog ("  - Detected Touch Mode or 'No Mouse' Mode\n");
-        #endif
-    }
-    else {
-        // Get all handles that support absolute pointer protocol (usually touchscreens, but sometimes mice)
-        UINTN NumPointerHandles = 0;
-        EFI_STATUS handlestatus = REFIT_CALL_5_WRAPPER(
-            gBS->LocateHandleBuffer,
-            ByProtocol,
-            &APointerGuid,
-            NULL,
-            &NumPointerHandles,
-            &APointerHandles
-        );
-
-        if (!EFI_ERROR (handlestatus)) {
-            APointerProtocol = AllocatePool (sizeof (EFI_ABSOLUTE_POINTER_PROTOCOL*) * NumPointerHandles);
-            UINTN Index;
-            for (Index = 0; Index < NumPointerHandles; Index++) {
-                // Open the protocol on the handle
-                EFI_STATUS status = REFIT_CALL_6_WRAPPER(
-                    gBS->OpenProtocol,
-                    APointerHandles[Index],
-                    &APointerGuid,
-                    (VOID **) &APointerProtocol[NumAPointerDevices],
-                    SelfImageHandle,
-                    NULL,
-                    EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL
-                );
-                if (status == EFI_SUCCESS) {
-                    #if REFIT_DEBUG > 0
-                    MsgLog ("  - Enable Touch\n");
-                    #endif
-
-                    NumAPointerDevices++;
-                }
-            }
-        }
-        else {
-            #if REFIT_DEBUG > 0
-            MsgLog ("  - Disable Touch\n");
-            #endif
-
-            GlobalConfig.EnableTouch = FALSE;
-        }
-
-        // Get all handles that support simple pointer protocol (mice)
-        NumPointerHandles = 0;
-        handlestatus = REFIT_CALL_5_WRAPPER(
-            gBS->LocateHandleBuffer,
-            ByProtocol,
-            &SPointerGuid,
-            NULL,
-            &NumPointerHandles,
-            &SPointerHandles
-        );
-
-        if (!EFI_ERROR (handlestatus)) {
-            SPointerProtocol = AllocatePool (sizeof (EFI_SIMPLE_POINTER_PROTOCOL*) * NumPointerHandles);
-            UINTN Index;
-            for (Index = 0; Index < NumPointerHandles; Index++) {
-                // Open the protocol on the handle
-                EFI_STATUS status = REFIT_CALL_6_WRAPPER(
-                    gBS->OpenProtocol,
-                    SPointerHandles[Index],
-                    &SPointerGuid,
-                    (VOID **) &SPointerProtocol[NumSPointerDevices],
-                    SelfImageHandle,
-                    NULL,
-                    EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL
-                );
-                if (status == EFI_SUCCESS) {
-                    #if REFIT_DEBUG > 0
-                    MsgLog ("  - Enable Mouse\n");
-                    #endif
-
-                    NumSPointerDevices++;
-                }
-            }
-        }
-        else {
-
-            #if REFIT_DEBUG > 0
-            MsgLog ("  - Disable Mouse\n");
-            #endif
-
-            GlobalConfig.EnableMouse = FALSE;
-        }
-
-        PointerAvailable = (NumAPointerDevices + NumSPointerDevices > 0);
-
-        // load mouse icon
-        if (PointerAvailable && GlobalConfig.EnableMouse) {
-            MouseImage = BuiltinIcon (BUILTIN_ICON_MOUSE);
-        }
+    if (!GlobalConfig.EnableMouse && !GlobalConfig.EnableTouch) {
+        return;
     }
 
-    #if REFIT_DEBUG > 0
-    MsgLog ("Pointer Devices Initialised\n\n");
-    #endif
+    UINTN NumPointerHandles = 0;
+    EFI_STATUS handlestatus = REFIT_CALL_5_WRAPPER(gBS->LocateHandleBuffer, ByProtocol, &APointerGuid, NULL, &NumPointerHandles, &APointerHandles);
+    if (!EFI_ERROR(handlestatus)) {
+        APointerProtocol = AllocatePool(sizeof(EFI_ABSOLUTE_POINTER_PROTOCOL*) * NumPointerHandles);
+        UINTN Index;
+        for(Index = 0; Index < NumPointerHandles; Index++) {
+            EFI_STATUS status = REFIT_CALL_6_WRAPPER(gBS->OpenProtocol, APointerHandles[Index], &APointerGuid, (VOID **) &APointerProtocol[NumAPointerDevices], SelfImageHandle, NULL, EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL);
+            if (status == EFI_SUCCESS) {
+                NumAPointerDevices++;
+                REFIT_CALL_1_WRAPPER(gBS->Stall, 5 * 1000);
+            }
+        }
+    } else {
+        GlobalConfig.EnableTouch = FALSE;
+    }
+
+    NumPointerHandles = 0;
+    handlestatus = REFIT_CALL_5_WRAPPER(gBS->LocateHandleBuffer, ByProtocol, &SPointerGuid, NULL, &NumPointerHandles, &SPointerHandles);
+    if(!EFI_ERROR(handlestatus)) {
+        SPointerProtocol = AllocatePool(sizeof(EFI_SIMPLE_POINTER_PROTOCOL*) * NumPointerHandles);
+        UINTN Index;
+        for(Index = 0; Index < NumPointerHandles; Index++) {
+            EFI_STATUS status = REFIT_CALL_6_WRAPPER(gBS->OpenProtocol, SPointerHandles[Index], &SPointerGuid, (VOID **) &SPointerProtocol[NumSPointerDevices], SelfImageHandle, NULL, EFI_OPEN_PROTOCOL_BY_HANDLE_PROTOCOL);
+            if (status == EFI_SUCCESS) {
+                NumSPointerDevices++;
+                REFIT_CALL_1_WRAPPER(gBS->Stall, 5 * 1000);
+            }
+        }
+    } else {
+        GlobalConfig.EnableMouse = FALSE;
+    }
+
+    if (NumAPointerDevices > 0 || NumSPointerDevices > 0) {
+        REFIT_CALL_1_WRAPPER(gBS->Stall, 500000);
+    }
+
+    PointerAvailable = (NumAPointerDevices > 0 || NumSPointerDevices > 0);
+
+    if (GlobalConfig.EnableMouse) {
+        MouseImage = BuiltinIcon(BUILTIN_ICON_MOUSE);
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -403,26 +342,32 @@ VOID pdDraw() {
     if (gSuppressPointerDraw) {
         return;
     }
-    if (Background) {
-        egFreeImage (Background);
+
+    if(Background != NULL) {
+        egDrawImage(Background, LastXPos, LastYPos);
+        egFreeImage(Background);
         Background = NULL;
     }
-    if (MouseImage) {
-        UINTN Width = MouseImage->Width;
-        UINTN Height = MouseImage->Height;
 
-        if (State.X + Width > ScreenW) {
-            Width = ScreenW - State.X;
-        }
-        if (State.Y + Height > ScreenH) {
-            Height = ScreenH - State.Y;
-        }
-
-        Background = egCopyScreenArea (State.X, State.Y, Width, Height);
-        if (Background) {
-            BltImageCompositeBadge (Background, MouseImage, NULL, State.X, State.Y);
-        }
+    if (MouseImage == NULL) {
+        return;
     }
+
+    UINTN Width  = MouseImage->Width;
+    UINTN Height = MouseImage->Height;
+
+    if(State.X + Width > ScreenW) {
+        Width = ScreenW - State.X;
+    }
+    if(State.Y + Height > ScreenH) {
+        Height = ScreenH - State.Y;
+    }
+
+    Background = egCopyScreenArea(State.X, State.Y, Width, Height);
+    if(Background != NULL) { // Only attempt to draw if background was successfully captured
+        BltImageCompositeBadge(Background, MouseImage, NULL, State.X, State.Y);
+    }
+
     LastXPos = State.X;
     LastYPos = State.Y;
 }
@@ -432,8 +377,8 @@ VOID pdDraw() {
 ////////////////////////////////////////////////////////////////////////////////
 VOID pdClear() {
     if (Background) {
-        egDrawImage (Background, LastXPos, LastYPos);
-        egFreeImage (Background);
+        egDrawImage(Background, LastXPos, LastYPos);
+        egFreeImage(Background);
         Background = NULL;
     }
 }
