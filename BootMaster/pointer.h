@@ -49,6 +49,7 @@ POINTER_STATE pdGetState();
 
 VOID pdDraw();
 VOID pdClear();
+VOID pdSetPosition (UINTN X, UINTN Y);
 
 #endif
 

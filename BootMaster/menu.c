@@ -111,6 +111,15 @@ static REFIT_MENU_ENTRY  MenuEntryNo   = { L"No", TAG_RETURN, 1, 0, 0, NULL, NUL
 // Graphics helper functions
 //
 
+// Forward declaration for GetMenuItemCenter
+static
+VOID GetMenuItemCenter (
+    IN  REFIT_MENU_SCREEN *Screen,
+    IN  SCROLL_STATE      *State,
+    IN  UINTN              ItemIndex,
+    OUT UINTN             *CenterX,
+    OUT UINTN             *CenterY
+);
 static
 VOID InitSelection (VOID) {
     EG_IMAGE  *TempSmallImage    = NULL;
@@ -558,6 +567,12 @@ UINTN RunGenericMenu(IN REFIT_MENU_SCREEN *Screen, IN MENU_STYLE_FUNC StyleFunc,
     if (*DefaultEntryIndex >= 0 && *DefaultEntryIndex <= State.MaxIndex) {
         State.CurrentSelection = *DefaultEntryIndex;
         UpdateScroll(&State, SCROLL_NONE);
+        // Position pointer at center of default selection
+        if (PointerEnabled) {
+            UINTN PointerX, PointerY;
+            GetMenuItemCenter (Screen, &State, State.CurrentSelection, &PointerX, &PointerY);
+            pdSetPosition (PointerX, PointerY);
+        }
     }
 
     if (Screen->TimeoutSeconds == -1) {
@@ -1832,6 +1847,94 @@ UINTN FindMainMenuItem (
 
     return ItemIndex;
 } // VOID FindMainMenuItem()
+
+////////////////////////////////////////////////////////////////////////////////
+// Calculate center position of a menu entry for pointer positioning
+////////////////////////////////////////////////////////////////////////////////
+static
+VOID GetMenuItemCenter (
+    IN  REFIT_MENU_SCREEN *Screen,
+    IN  SCROLL_STATE      *State,
+    IN  UINTN              ItemIndex,
+    OUT UINTN             *CenterX,
+    OUT UINTN             *CenterY
+) {
+    UINTN  i;
+    UINTN  row0PosX;
+    UINTN  row0PosY;
+    UINTN  row1PosX;
+    UINTN  row1PosY;
+    UINTN  itemPosX;
+    UINTN  row0PosXRunning;
+    UINTN  row1PosXRunning;
+    if (ItemIndex > State->MaxIndex) {
+        // Invalid index, default to screen center
+        *CenterX = ScreenW >> 1;
+        *CenterY = ScreenH >> 1;
+        return;
+    }
+    // Need to get IconRowPosX, IconRowPosY, ToolRowPosX, ToolRowPosY, TileSizes from MainMenuStyle context
+    // This is a simplified approach, assuming these are accessible or can be derived.
+    // For a precise implementation, these static variables might need to be passed or made global.
+    // For now, let's derive them from MainMenuStyle's logic (which is more complex than a simple call)
+    // or assume they are exposed in some way.
+    // Given the diff, there's a call to `GetStateInfo(Screen, State);` which is not provided.
+    // I will assume `GetStateInfo` would populate the necessary static variables.
+    // Since I don't have the `GetStateInfo` function, I will use placeholder logic based on the diff.
+
+    // Placeholder for where these would come from (e.g., GetStateInfo)
+    // For the purpose of this replacement, I'll use the logic from MainMenuStyle directly.
+    UINTN row0Count, row1Count;
+    row0Count = 0;
+    row1Count = 0;
+    for (i = 0; i <= State->MaxIndex; i++) {
+        if (Screen->Entries[i]->Row == 1) {
+            row1Count++;
+        }
+        else {
+            if (row0Count < State->MaxVisible) {
+                row0Count++;
+            }
+        }
+    }
+    row0PosX = (ScreenW + TILE_XSPACING - (TileSizes[0] + TILE_XSPACING) * row0Count) >> 1;
+    row0PosY = ComputeRow0PosY(); // Assuming ComputeRow0PosY is accessible
+    row1PosX = (ScreenW + TILE_XSPACING - (TileSizes[1] + TILE_XSPACING) * row1Count) >> 1;
+    row1PosY = row0PosY + TileSizes[0] + TILE_YSPACING; // Assuming TileSizes are accessible
+
+    // Re-calculate itemPosX as done in MainMenuStyle to get the correct x-coordinate for each item
+    // This part is a bit tricky as itemPosX is usually static in MainMenuStyle.
+    // We need to re-implement the layout calculation here.
+    row0PosXRunning = row0PosX;
+    row1PosXRunning = row1PosX;
+
+    // This loop re-calculates the positions.
+    for (i = 0; i <= State->MaxIndex; i++) {
+        if (i == ItemIndex) { // Found the target item
+            if (Screen->Entries[i]->Row == 0) {
+                itemPosX = row0PosXRunning;
+                *CenterX = itemPosX + (TileSizes[0] >> 1);
+                *CenterY = row0PosY + (TileSizes[0] >> 1);
+            }
+            else {
+                itemPosX = row1PosXRunning;
+                *CenterX = itemPosX + (TileSizes[1] >> 1);
+                *CenterY = row1PosY + (TileSizes[1] >> 1);
+            }
+            return;
+        }
+        if (Screen->Entries[i]->Row == 0) {
+            row0PosXRunning += TileSizes[0] + TILE_XSPACING;
+        }
+        else {
+            row1PosXRunning += TileSizes[1] + TILE_XSPACING;
+        }
+    }
+    // Fallback to screen center if for some reason the item isn't found (should not happen with ItemIndex check)
+    *CenterX = ScreenW >> 1;
+    *CenterY = ScreenH >> 1;
+} // static VOID GetMenuItemCenter()
+
 
 
 

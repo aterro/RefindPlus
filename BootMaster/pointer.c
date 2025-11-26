@@ -157,10 +157,10 @@ VOID pdCleanup() {
     NumAPointerDevices = 0;
     NumSPointerDevices = 0;
 
-    LastXPos = ScreenW / 2;
+    LastXPos = ScreenW / 6;
     LastYPos = ScreenH / 2;
 
-    State.X = ScreenW / 2;
+    State.X = ScreenW / 6;
     State.Y = ScreenH / 2;
     State.Press = FALSE;
     State.Holding = FALSE;
@@ -335,6 +335,15 @@ POINTER_STATE pdGetState() {
     return State;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Set the pointer position
+////////////////////////////////////////////////////////////////////////////////
+VOID pdSetPosition (UINTN X, UINTN Y) {
+    State.X = X;
+    State.Y = Y;
+    LastXPos = X;
+    LastYPos = Y;
+} // VOID pdSetPosition()
 ////////////////////////////////////////////////////////////////////////////////
 // Draw the mouse at the current coordinates
 ////////////////////////////////////////////////////////////////////////////////
