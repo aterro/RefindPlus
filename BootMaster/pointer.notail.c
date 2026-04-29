@@ -54,11 +54,63 @@ BOOLEAN                         gPointerActuallyMoved =                         
 POINTER_STATE                   State;
 
 extern BOOLEAN                  RunningOC;
-
+static EG_IMAGE *CreateFallbackNoTailCursor (VOID);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Frees allocated memory and closes pointer protocols
 ////////////////////////////////////////////////////////////////////////////////
+static
+EG_IMAGE *CreateFallbackNoTailCursor (VOID) {
+    UINTN x, y;
+
+    EG_IMAGE *Img = egCreateImage (32, 32, TRUE);
+    if (Img == NULL) {
+        return NULL;
+    }
+
+    // Palette: 0=Transparent, 1=Dark Outline, 2=White Fill
+    static const UINT8 Map[32][32] = {
+        {1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
+    };
+	for (y = 0; y < 32; y++) {
+		for (x = 0; x < 32; x++) {
+			EG_PIXEL *Pixel = &Img->PixelData[y * 32 + x];
+
+            switch (Map[y][x]) {
+                case 1:
+                    Pixel->r = 0x1A; Pixel->g = 0x1A; Pixel->b = 0x1A; Pixel->a = 0xFF;
+                    break;
+                case 2:
+                    Pixel->r = 0xFF; Pixel->g = 0xFF; Pixel->b = 0xFF; Pixel->a = 0xFF;
+                    break;
+                default:
+                    Pixel->r = 0x00; Pixel->g = 0x00; Pixel->b = 0x00; Pixel->a = 0x00;
+                    break;
+            }
+        }
+    }
+
+    Img->HasAlpha = TRUE;
+    return Img;
+}
+
 static
 VOID pdCleanup (VOID) {
     #if REFIT_DEBUG > 0
@@ -327,68 +379,28 @@ VOID pdInitialize (VOID) {
         PointerAvailable = FALSE;
     }
     else {
-        if (GlobalConfig.EnableMouse) {
-            MouseImage = BuiltinIcon (
-                BUILTIN_ICON_MOUSE
-            );
-            // Final Symmetric White Pointer with Continuous Tail (MSI B760M Fix)
-            if (MouseImage != NULL) {
-                UINTN x, y;
-                // Palette: 0=Transparent, 1=Dark Outline, 2=White Fill
-                static const UINT8 Map[32][32] = {
-                     {1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                     {1,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                     {1,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                     {1,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                     {1,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                     {1,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                     {1,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                     {1,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                     {1,2,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                     {1,2,2,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                     {1,2,2,2,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                     {1,2,2,2,2,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                     {1,2,2,2,2,2,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                     {1,2,2,2,2,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                     {1,2,2,2,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                     {1,2,2,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                     {1,2,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
-                     {1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
-               };
+		/* If mouse support is enabled and no image was provided upstream,
+		* install a safe fallback cursor.
+		*/
+		if (GlobalConfig.EnableMouse && MouseImage == NULL) {
 
-                for (y = 0; y < MouseImage->Height; y++) {
-                    for (x = 0; x < MouseImage->Width; x++) {
-                        EG_PIXEL *Pixel = &MouseImage->PixelData[y * MouseImage->Width + x];
-                        UINT8 Type = (x < 32 && y < 32) ? Map[y][x] : 0;
+			MouseImage = CreateFallbackNoTailCursor();
 
-                        switch (Type) {
-                            case 1: // High-Contrast Dark Border
-                                Pixel->r = 0x1A; Pixel->g = 0x1A; Pixel->b = 0x1A; Pixel->a = 0xFF;
-                                break;
-                            case 2: // Pure White Continuous Fill
-                                Pixel->r = 0xFF; Pixel->g = 0xFF; Pixel->b = 0xFF; Pixel->a = 0xFF;
-                                break;
-                            default: // Transparent
-                                Pixel->r = 0x00; Pixel->g = 0x00; Pixel->b = 0x00; Pixel->a = 0x00;
-                                break;
-                        }
-                    }
-                }
-                MouseImage->HasAlpha = TRUE;
-            }
-        }
+			if (MouseImage == NULL) {
+				MouseImage = BuiltinIcon (BUILTIN_ICON_MOUSE);
+			}
+		}
 
-        // Form below is Deliberate for RunningOC
-        MouseTouchActive = (
-            GlobalConfig.EnableMouse ||
-            GlobalConfig.EnableTouch
-        ) ? TRUE : FALSE;
-        PointerAvailable = (
-            GlobalConfig.EnableMouse ||
-            GlobalConfig.EnableTouch
-        ) ? TRUE : FALSE;
-    }
+		MouseTouchActive = (
+			GlobalConfig.EnableMouse ||
+			GlobalConfig.EnableTouch
+		) ? TRUE : FALSE;
 
+		PointerAvailable = (
+			GlobalConfig.EnableMouse ||
+			GlobalConfig.EnableTouch
+		) ? TRUE : FALSE;
+	}
     #if REFIT_DEBUG > 0
     if (RunningOC) {
         Status = EFI_NOT_STARTED;
