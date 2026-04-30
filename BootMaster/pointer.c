@@ -55,6 +55,88 @@ POINTER_STATE                   State;
 
 extern BOOLEAN                  RunningOC;
 
+static EG_IMAGE *CreateFallbackNoTailCursor (VOID);
+static BOOLEAN   IsImageFullyTransparent (IN EG_IMAGE *Image);
+
+////////////////////////////////////////////////////////////////////////////////
+// Check if an image is fully transparent (all alpha values are 0)
+////////////////////////////////////////////////////////////////////////////////
+static
+BOOLEAN IsImageFullyTransparent (
+    EG_IMAGE *Image
+) {
+    UINTN x, y;
+
+    if (Image == NULL || Image->PixelData == NULL) {
+        return TRUE;
+    }
+
+    for (y = 0; y < Image->Height; y++) {
+        for (x = 0; x < Image->Width; x++) {
+            EG_PIXEL *Pixel = &Image->PixelData[y * Image->Width + x];
+            if (Pixel->a != 0) {
+                return FALSE;
+            }
+        }
+    }
+
+    return TRUE;
+} // static BOOLEAN IsImageFullyTransparent()
+
+////////////////////////////////////////////////////////////////////////////////
+// Create a fallback mouse cursor without tail (for MSI bug workaround)
+////////////////////////////////////////////////////////////////////////////////
+static
+EG_IMAGE *CreateFallbackNoTailCursor (VOID) {
+    UINTN x, y;
+
+    EG_IMAGE *Img = egCreateImage (32, 32, TRUE);
+    if (Img == NULL) {
+        return NULL;
+    }
+
+    // Palette: 0=Transparent, 1=Dark Outline, 2=White Fill
+    static const UINT8 Map[32][32] = {
+        {1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,2,2,2,2,2,2,2,2,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,2,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,2,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,2,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,2,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0},
+        {1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
+    };
+    for (y = 0; y < 32; y++) {
+        for (x = 0; x < 32; x++) {
+            EG_PIXEL *Pixel = &Img->PixelData[y * 32 + x];
+
+            switch (Map[y][x]) {
+                case 1:
+                    Pixel->r = 0x1A; Pixel->g = 0x1A; Pixel->b = 0x1A; Pixel->a = 0xFF;
+                    break;
+                case 2:
+                    Pixel->r = 0xFF; Pixel->g = 0xFF; Pixel->b = 0xFF; Pixel->a = 0xFF;
+                    break;
+                default:
+                    Pixel->r = 0x00; Pixel->g = 0x00; Pixel->b = 0x00; Pixel->a = 0x00;
+                    break;
+            }
+        }
+    }
+
+    Img->HasAlpha = TRUE;
+    return Img;
+} // static EG_IMAGE *CreateFallbackNoTailCursor()
 
 ////////////////////////////////////////////////////////////////////////////////
 // Frees allocated memory and closes pointer protocols
@@ -328,9 +410,39 @@ VOID pdInitialize (VOID) {
     }
     else {
         if (GlobalConfig.EnableMouse) {
-            MouseImage = BuiltinIcon (
-                BUILTIN_ICON_MOUSE
-            );
+            // If mouse support is enabled and no image was provided upstream,
+            // install a safe fallback cursor.
+            // This handles: missing mouse.png, MSI transparent bug, or load failures.
+            if (MouseImage == NULL) {
+                // Use egFindIcon directly to avoid caching issues
+                // mouse.png has ICON_SIZE_MOUSE size
+                MouseImage = egFindIcon (
+                    L"mouse",
+                    GlobalConfig.IconSizes[ICON_SIZE_MOUSE]
+                );
+
+                // Check if the loaded mouse icon is fully transparent (MSI bug workaround)
+                if (MouseImage != NULL && IsImageFullyTransparent(MouseImage)) {
+                    MY_FREE_IMAGE(MouseImage);
+                    MouseImage = NULL;
+
+                    #if REFIT_DEBUG > 0
+                    MsgStr = PoolPrint (
+                        L"Mouse Icon Fully Transparent ... Using Fallback Cursor"
+                    );
+                    ALT_LOG(1, LOG_THREE_STAR_MID, L"%s", MsgStr);
+                    LOG_MSG("%s  - %s", OffsetNext, MsgStr);
+                    MY_FREE_POOL(MsgStr);
+                    #endif
+                }
+            }
+
+            // If still no mouse image (not loaded, failed, or was transparent), use fallback
+            if (MouseImage == NULL) {
+                MouseImage = CreateFallbackNoTailCursor();
+            }
+
+            // If fallback failed, we simply operate without a cursor (safe - no hang)
         }
 
         // Form below is Deliberate for RunningOC
