@@ -1109,7 +1109,7 @@ VOID PaintAll (
 
     DrawTextWithTransparency (L"", 0, textPosY);
     if (!(GlobalConfig.HideUIFlags & HIDEUI_FLAG_LABEL) &&
-        (!PointerActive || DrawSelection)
+        (!PointerEnabled || DrawSelection)
     ) {
         DrawTextWithTransparency (
             Screen->Entries[State->CurrentSelection]->Title,
@@ -1197,7 +1197,7 @@ VOID PaintSelection (
 
     DrawTextWithTransparency (L"", 0, textPosY);
     if (!(GlobalConfig.HideUIFlags & HIDEUI_FLAG_LABEL) &&
-        (!PointerActive || DrawSelection)
+        (!PointerEnabled || DrawSelection)
     ) {
         DrawTextWithTransparency (
             Screen->Entries[State->CurrentSelection]->Title,
