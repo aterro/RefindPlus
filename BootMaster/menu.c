@@ -2250,6 +2250,32 @@ UINTN DrawMenuScreen (
             pdSetPosition (PointerX, PointerY);
             MainMenuFirstRun = FALSE;
         }
+        else if (PointerEnabled && IsMainMenu) {
+            PointerStatus = pdUpdateState();
+            PointerState = pdGetState();
+            Item = FindMainMenuItem (
+                Screen, &State,
+                PointerState.X, PointerState.Y
+            );
+
+            PointerActive = TRUE;
+
+            if (Item == State.CurrentSelection) {
+                DrawSelection = TRUE;
+                State.PreviousSelection = State.CurrentSelection;
+            }
+            else if (Item != POINTER_NO_ITEM &&
+                     Item != POINTER_LEFT_ARROW &&
+                     Item != POINTER_RIGHT_ARROW) {
+                State.CurrentSelection  = Item;
+                State.PreviousSelection = Item;
+                DrawSelection           = TRUE;
+            }
+            else {
+                State.PreviousSelection = State.CurrentSelection;
+                DrawSelection           = FALSE;
+            }
+        }
     }
 
     WaitForRelease = FALSE;
