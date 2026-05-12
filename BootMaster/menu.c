@@ -2520,6 +2520,10 @@ UINTN DrawMenuScreen (
             if (StyleFunc != MainMenuStyle && pdGetState().Press) {
                 // Prevent user from getting stuck on submenus
                 // Only 'About' screen currently reachable without keyboard
+                if (gPointerActuallyMoved) {
+                    pdDraw();
+                }
+                pdClear();
                 MenuExit = MENU_EXIT_ESCAPE;
                 break;
             }
